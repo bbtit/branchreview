@@ -1,0 +1,19 @@
+# Dependencies & build
+node_modules/
+out/
+dist/
+*.vsix
+.vscode-test/
+
+# Logs & OS
+*.log
+.DS_Store
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+
+# TypeScript / IDE
+*.tsbuildinfo
+.vscode/*.log
