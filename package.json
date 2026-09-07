@@ -48,8 +48,30 @@
         "title": "SideDiff: Clear Base"
       },
       {
+        "command": "sidediff.nextChange",
+        "title": "SideDiff: Next Change"
+      },
+      {
+        "command": "sidediff.previousChange",
+        "title": "SideDiff: Previous Change"
+      },
+      {
         "command": "sidediff.showGitContext",
         "title": "SideDiff: Show Git Context"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "sidediff.nextChange",
+        "key": "alt+]",
+        "mac": "alt+]",
+        "when": "editorTextFocus && !isInDiffEditor"
+      },
+      {
+        "command": "sidediff.previousChange",
+        "key": "alt+[",
+        "mac": "alt+[",
+        "when": "editorTextFocus && !isInDiffEditor"
       }
     ]
   },

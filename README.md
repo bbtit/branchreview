@@ -29,9 +29,17 @@ Press **F5** in VS Code / Cursor to launch an Extension Development Host.
 Command Palette:
 
 - `SideDiff: Set Base` / `Resume Review` / `Stop Review` / `Clear Base`
+- `SideDiff: Next Change` / `Previous Change` (`Alt+]` / `Alt+[`)
 - `SideDiff: Show Git Context` (debug: repo root / branch / HEAD)
 
 Status bar shows `SideDiff: off` or `SideDiff: <base>` (and `· local changes` when the working tree is dirty during review).
+
+### Manual check (MVP-06)
+
+1. Set Base so overlay is ON on a branch with changes in multiple files.
+2. **Next Change** / `Alt+]` moves to the next hunk in the same file, then the first hunk of the next file.
+3. At the last change, Next wraps to the first; **Previous Change** / `Alt+[` wraps the other way.
+4. Jumping to an unopened file opens it in the normal editor with gutters visible (no Diff Editor).
 
 ### Manual check (MVP-03)
 

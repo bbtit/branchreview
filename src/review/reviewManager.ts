@@ -1,3 +1,4 @@
+import { join } from "node:path";
 import * as vscode from "vscode";
 import { GutterDecorations } from "../decorations/gutterDecorations.ts";
 import { DiffPipeline } from "../diff/diffPipeline.ts";
@@ -5,6 +6,12 @@ import { gutterMarksFromHunks } from "../diff/gutterMarks.ts";
 import type { GitClient } from "../git/gitClient.ts";
 import { repoRelativePath } from "../git/repoPath.ts";
 import { getGitContextForFile, type GitContext } from "../git/repository.ts";
+import {
+  changeTargetsFromFiles,
+  findNextChangeTarget,
+  findPreviousChangeTarget,
+  type ChangeTarget,
+} from "../navigation/changeTargets.ts";
 import { orderBaseCandidates } from "./baseCandidates.ts";
 import {
   clearPersistedReview,
@@ -24,7 +31,7 @@ const ENTER_REVISION_LABEL = "$(edit) Enter revision…";
 
 /**
  * Owns SideDiff review ON/OFF, base persistence, status bar, branch watch,
- * and gutter decorations on the normal editor (MVP-03 / MVP-05).
+ * gutter decorations, and change navigation on the normal editor.
  */
 export class ReviewManager implements vscode.Disposable {
   private readonly statusBar: vscode.StatusBarItem;
@@ -187,6 +194,14 @@ export class ReviewManager implements vscode.Disposable {
     await this.refreshStatusBar();
   }
 
+  async nextChange(): Promise<void> {
+    await this.navigateChange("next");
+  }
+
+  async previousChange(): Promise<void> {
+    await this.navigateChange("previous");
+  }
+
   /** Exposed for tests / future decoration layer. */
   getSessionSnapshot(repoRoot: string): {
     base?: string;
@@ -331,6 +346,107 @@ export class ReviewManager implements vscode.Disposable {
       }
     }
     await this.refreshStatusBar();
+    await this.refreshGutters();
+  }
+
+  private async navigateChange(direction: "next" | "previous"): Promise<void> {
+    const session = await this.requireActiveReviewSession();
+    if (!session) {
+      return;
+    }
+    const { gitContext, base } = session;
+
+    const files = await this.diffPipeline.getChangedFiles({
+      repoRoot: gitContext.root,
+      base,
+      head: gitContext.head,
+      overlayActive: true,
+    });
+    if (!files) {
+      void vscode.window.showInformationMessage("SideDiff: no changes to navigate.");
+      return;
+    }
+
+    const targets = changeTargetsFromFiles(files);
+    if (targets.length === 0) {
+      void vscode.window.showInformationMessage("SideDiff: no changes to navigate.");
+      return;
+    }
+
+    const cursor = this.cursorInRepo(gitContext.root);
+    const target =
+      direction === "next"
+        ? findNextChangeTarget(targets, cursor)
+        : findPreviousChangeTarget(targets, cursor);
+
+    if (!target) {
+      void vscode.window.showInformationMessage("SideDiff: no changes to navigate.");
+      return;
+    }
+
+    await this.revealChangeTarget(gitContext.root, target);
+  }
+
+  /**
+   * Overlay must be ON with a base; otherwise navigation has nothing to walk.
+   */
+  private async requireActiveReviewSession(): Promise<
+    { gitContext: GitContext; base: string } | undefined
+  > {
+    const gitContext = await this.resolveActiveGitContext();
+    if (!gitContext) {
+      void vscode.window.showWarningMessage("SideDiff: open a file inside a Git repository.");
+      return undefined;
+    }
+
+    this.autoStopIfBranchChanged(gitContext.root, gitContext.branch);
+    const runtime = this.getRuntime(gitContext.root);
+    const persisted = this.getPersisted(gitContext.root);
+    if (!runtime.overlayActive || !persisted.base) {
+      void vscode.window.showInformationMessage(
+        "SideDiff: start a review (Set Base or Resume Review) to navigate changes.",
+      );
+      return undefined;
+    }
+    return { gitContext, base: persisted.base };
+  }
+
+  private cursorInRepo(repoRoot: string): { path: string; line: number } | undefined {
+    const editor = vscode.window.activeTextEditor;
+    if (!editor || editor.document.uri.scheme !== "file") {
+      return undefined;
+    }
+    const rel = repoRelativePath(repoRoot, editor.document.uri.fsPath);
+    if (rel.startsWith("..") || rel === "") {
+      return undefined;
+    }
+    return {
+      path: rel,
+      line: editor.selection.active.line + 1,
+    };
+  }
+
+  /** Open in the normal text editor and reveal the hunk line (never Diff Editor). */
+  private async revealChangeTarget(repoRoot: string, target: ChangeTarget): Promise<void> {
+    const abs = join(repoRoot, ...target.path.split("/"));
+    const uri = vscode.Uri.file(abs);
+    let document: vscode.TextDocument;
+    try {
+      document = await vscode.workspace.openTextDocument(uri);
+    } catch {
+      void vscode.window.showWarningMessage(`SideDiff: could not open ${target.path}`);
+      return;
+    }
+
+    const editor = await vscode.window.showTextDocument(document, {
+      preview: false,
+      preserveFocus: false,
+    });
+    const maxLine = Math.max(document.lineCount, 1);
+    const line = Math.min(Math.max(target.line, 1), maxLine) - 1;
+    const pos = new vscode.Position(line, 0);
+    editor.selection = new vscode.Selection(pos, pos);
+    editor.revealRange(new vscode.Range(pos, pos), vscode.TextEditorRevealType.InCenter);
     await this.refreshGutters();
   }
 
