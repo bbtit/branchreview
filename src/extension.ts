@@ -17,6 +17,9 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand("sidediff.previousChange", () =>
       reviewManager.previousChange(),
     ),
+    vscode.commands.registerCommand("sidediff.openTreeFile", (args) =>
+      reviewManager.openTreeFile(args),
+    ),
     vscode.commands.registerCommand("sidediff.showGitContext", async () => {
       const editor = vscode.window.activeTextEditor;
       if (!editor) {

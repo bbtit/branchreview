@@ -34,7 +34,7 @@ index 1111111..2222222 100644
 `;
 
 test("parses an added-file hunk with new-side line numbers", () => {
-  const hunks = parseUnifiedDiff(ADD_DIFF).get("src/new.ts");
+  const hunks = parseUnifiedDiff(ADD_DIFF).hunksByPath.get("src/new.ts");
   expect(hunks).toHaveLength(1);
   expect(hunks![0]).toMatchObject({
     oldStart: 0,
@@ -49,7 +49,7 @@ test("parses an added-file hunk with new-side line numbers", () => {
 });
 
 test("parses modify hunks as delete-plus-add and pure inserts", () => {
-  const hunks = parseUnifiedDiff(MODIFY_DIFF).get("src/edit.ts");
+  const hunks = parseUnifiedDiff(MODIFY_DIFF).hunksByPath.get("src/edit.ts");
   expect(hunks).toHaveLength(2);
   expect(hunks![0]!.changes).toEqual([
     { type: "delete", oldLine: 3, content: "old line" },
@@ -59,7 +59,7 @@ test("parses modify hunks as delete-plus-add and pure inserts", () => {
 });
 
 test("parses a delete hunk with old-side line numbers only", () => {
-  const hunks = parseUnifiedDiff(DELETE_HUNK_DIFF).get("src/keep.ts");
+  const hunks = parseUnifiedDiff(DELETE_HUNK_DIFF).hunksByPath.get("src/keep.ts");
   expect(hunks).toHaveLength(1);
   expect(hunks![0]).toMatchObject({
     oldStart: 5,
@@ -111,4 +111,27 @@ M\tsrc/edit.ts
     deletions: 1,
   });
   expect(files[1]!.hunks).toHaveLength(2);
+});
+
+const BINARY_DIFF = `diff --git a/img/logo.png b/img/logo.png
+index 1111111..2222222 100644
+Binary files a/img/logo.png and b/img/logo.png differ
+`;
+
+test("marks binary files without text hunks", () => {
+  const parsed = parseUnifiedDiff(BINARY_DIFF);
+  expect(parsed.binaryPaths.has("img/logo.png")).toBe(true);
+  expect(parsed.hunksByPath.get("img/logo.png")).toEqual([]);
+
+  const files = buildChangedFiles("M\timg/logo.png\n", BINARY_DIFF);
+  expect(files).toEqual([
+    {
+      path: "img/logo.png",
+      status: "modified",
+      additions: 0,
+      deletions: 0,
+      hunks: [],
+      binary: true,
+    },
+  ]);
 });

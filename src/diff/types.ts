@@ -27,6 +27,8 @@ export type ChangedFile = {
   hunks: DiffHunk[];
   /** Set when `status` is `renamed` (old path before rename). */
   oldPath?: string;
+  /** True when Git reports a binary diff (no text hunks; skip decorations). */
+  binary?: boolean;
 };
 
 export type GitDiff = {

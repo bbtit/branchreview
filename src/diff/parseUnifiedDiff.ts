@@ -2,12 +2,19 @@ import type { DiffChange, DiffHunk } from "./types.ts";
 
 const HUNK_HEADER = /^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@/;
 
+export type ParsedUnifiedDiff = {
+  hunksByPath: Map<string, DiffHunk[]>;
+  /** Paths whose unified diff is a binary marker (no text hunks). */
+  binaryPaths: Set<string>;
+};
+
 /**
  * Parse `git diff --unified=0` (or any unified diff) into hunks keyed by new-side path.
- * Binary file markers yield an empty hunk list for that path.
+ * Binary file markers yield an empty hunk list and are recorded in `binaryPaths`.
  */
-export function parseUnifiedDiff(output: string): Map<string, DiffHunk[]> {
+export function parseUnifiedDiff(output: string): ParsedUnifiedDiff {
   const byPath = new Map<string, DiffHunk[]>();
+  const binaryPaths = new Set<string>();
   let currentPath: string | undefined;
   let hunks: DiffHunk[] = [];
   let currentHunk: DiffHunk | undefined;
@@ -42,6 +49,9 @@ export function parseUnifiedDiff(output: string): Map<string, DiffHunk[]> {
 
     if (line.startsWith("Binary files ") && line.includes(" and ") && line.endsWith(" differ")) {
       // Keep path with empty hunks; caller still sees the file via name-status.
+      if (currentPath !== undefined) {
+        binaryPaths.add(currentPath);
+      }
       currentHunk = undefined;
       continue;
     }
@@ -90,7 +100,7 @@ export function parseUnifiedDiff(output: string): Map<string, DiffHunk[]> {
   }
 
   flushPath();
-  return byPath;
+  return { hunksByPath: byPath, binaryPaths };
 }
 
 function pathFromDiffGitLine(line: string): string | undefined {

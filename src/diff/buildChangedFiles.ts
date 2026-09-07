@@ -10,11 +10,14 @@ export function buildChangedFiles(
   unifiedDiffOutput: string,
 ): ChangedFile[] {
   const entries = parseNameStatus(nameStatusOutput);
-  const hunksByPath = parseUnifiedDiff(unifiedDiffOutput);
+  const { hunksByPath, binaryPaths } = parseUnifiedDiff(unifiedDiffOutput);
 
   return entries.map((entry) => {
     const hunks = hunksForEntry(entry.path, entry.oldPath, hunksByPath);
     const { additions, deletions } = countLineChanges(hunks);
+    const binary =
+      binaryPaths.has(entry.path) ||
+      (entry.oldPath !== undefined && binaryPaths.has(entry.oldPath));
     const file: ChangedFile = {
       path: entry.path,
       status: entry.status,
@@ -24,6 +27,9 @@ export function buildChangedFiles(
     };
     if (entry.oldPath !== undefined) {
       file.oldPath = entry.oldPath;
+    }
+    if (binary) {
+      file.binary = true;
     }
     return file;
   });

@@ -34,6 +34,16 @@ Command Palette:
 
 Status bar shows `SideDiff: off` or `SideDiff: <base>` (and `· local changes` when the working tree is dirty during review).
 
+Activity bar **SideDiff** → **Changes** lists files from `base...HEAD` while overlay is ON. Click opens the normal editor (deleted files show a message only; never Diff Editor).
+
+### Manual check (MVP-08)
+
+1. Set Base so overlay is ON → SideDiff activity bar **Changes** lists modified/added/deleted/renamed files with `+/-` (and `binary` when applicable).
+2. Click a non-deleted file → opens in the normal editor with gutters (when text).
+3. Click a deleted file → information message only; no Diff Editor.
+4. Stop Review → tree shows “Review is off”; Set Base again with a different base → list updates.
+5. Base header row shows the current base revision.
+
 ### Manual check (MVP-06)
 
 1. Set Base so overlay is ON on a branch with changes in multiple files.

@@ -12,6 +12,11 @@ import {
   findPreviousChangeTarget,
   type ChangeTarget,
 } from "../navigation/changeTargets.ts";
+import {
+  CHANGES_VIEW_ID,
+  ChangesTreeProvider,
+  type OpenTreeFileArgs,
+} from "../views/changesTreeView.ts";
 import { orderBaseCandidates } from "./baseCandidates.ts";
 import {
   clearPersistedReview,
@@ -31,18 +36,20 @@ const ENTER_REVISION_LABEL = "$(edit) Enter revision…";
 
 /**
  * Owns SideDiff review ON/OFF, base persistence, status bar, branch watch,
- * gutter decorations, and change navigation on the normal editor.
+ * gutter decorations, Changes Tree, and change navigation on the normal editor.
  */
 export class ReviewManager implements vscode.Disposable {
   private readonly statusBar: vscode.StatusBarItem;
   private readonly disposables: vscode.Disposable[] = [];
   private readonly diffPipeline: DiffPipeline;
   private readonly gutters: GutterDecorations;
+  private readonly changesTree: ChangesTreeProvider;
   private persisted: PersistedReviewMap;
   private readonly runtime = new Map<string, RuntimeRepoReview>();
   private readonly headWatchers = new Map<string, vscode.FileSystemWatcher>();
   private refreshSerial = 0;
   private gutterSerial = 0;
+  private treeSerial = 0;
 
   constructor(
     private readonly context: vscode.ExtensionContext,
@@ -51,15 +58,25 @@ export class ReviewManager implements vscode.Disposable {
     this.persisted = loadPersistedMap(context.workspaceState.get(WORKSPACE_STATE_KEY));
     this.diffPipeline = new DiffPipeline(git);
     this.gutters = new GutterDecorations(context.extensionUri);
+    this.changesTree = new ChangesTreeProvider();
     this.statusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
     this.statusBar.command = "sidediff.setBase";
     this.statusBar.show();
-    this.disposables.push(this.statusBar, this.gutters);
+    this.disposables.push(
+      this.statusBar,
+      this.gutters,
+      this.changesTree,
+      vscode.window.createTreeView(CHANGES_VIEW_ID, {
+        treeDataProvider: this.changesTree,
+        showCollapseAll: false,
+      }),
+    );
 
     this.disposables.push(
       vscode.window.onDidChangeActiveTextEditor(() => {
         void this.refreshStatusBar();
         void this.refreshGutters();
+        void this.refreshChangesTree();
       }),
       vscode.workspace.onDidSaveTextDocument(() => {
         void this.refreshStatusBar();
@@ -76,6 +93,7 @@ export class ReviewManager implements vscode.Disposable {
 
     void this.refreshStatusBar();
     void this.refreshGutters();
+    void this.refreshChangesTree();
   }
 
   dispose(): void {
@@ -170,6 +188,7 @@ export class ReviewManager implements vscode.Disposable {
       `SideDiff: stopped (base ${this.getPersisted(gitContext.root).base ?? "none"} kept).`,
     );
     await this.refreshStatusBar();
+    await this.refreshChangesTree();
   }
 
   async clearBase(): Promise<void> {
@@ -192,6 +211,7 @@ export class ReviewManager implements vscode.Disposable {
     await this.savePersisted();
     void vscode.window.showInformationMessage("SideDiff: base cleared.");
     await this.refreshStatusBar();
+    await this.refreshChangesTree();
   }
 
   async nextChange(): Promise<void> {
@@ -200,6 +220,35 @@ export class ReviewManager implements vscode.Disposable {
 
   async previousChange(): Promise<void> {
     await this.navigateChange("previous");
+  }
+
+  /**
+   * Open a Changes Tree file in the normal editor (D12: deleted → message only).
+   * Never opens Diff Editor.
+   */
+  async openTreeFile(args: OpenTreeFileArgs): Promise<void> {
+    if (args.status === "deleted") {
+      void vscode.window.showInformationMessage(
+        `SideDiff: ${args.path} was deleted on this branch.`,
+      );
+      return;
+    }
+
+    const abs = join(args.repoRoot, ...args.path.split("/"));
+    const uri = vscode.Uri.file(abs);
+    let document: vscode.TextDocument;
+    try {
+      document = await vscode.workspace.openTextDocument(uri);
+    } catch {
+      void vscode.window.showWarningMessage(`SideDiff: could not open ${args.path}`);
+      return;
+    }
+
+    await vscode.window.showTextDocument(document, {
+      preview: false,
+      preserveFocus: false,
+    });
+    await this.refreshGutters();
   }
 
   /** Exposed for tests / future decoration layer. */
@@ -255,6 +304,7 @@ export class ReviewManager implements vscode.Disposable {
     void vscode.window.showInformationMessage(`SideDiff: reviewing against ${revision}`);
     await this.refreshStatusBar();
     await this.refreshGutters();
+    await this.refreshChangesTree();
   }
 
   private async requireReviewableContext(action: string): Promise<GitContext | undefined> {
@@ -347,6 +397,7 @@ export class ReviewManager implements vscode.Disposable {
     }
     await this.refreshStatusBar();
     await this.refreshGutters();
+    await this.refreshChangesTree();
   }
 
   private async navigateChange(direction: "next" | "previous"): Promise<void> {
@@ -399,7 +450,10 @@ export class ReviewManager implements vscode.Disposable {
       return undefined;
     }
 
-    this.autoStopIfBranchChanged(gitContext.root, gitContext.branch);
+    const stopped = this.autoStopIfBranchChanged(gitContext.root, gitContext.branch);
+    if (stopped) {
+      void this.refreshChangesTree();
+    }
     const runtime = this.getRuntime(gitContext.root);
     const persisted = this.getPersisted(gitContext.root);
     if (!runtime.overlayActive || !persisted.base) {
@@ -506,13 +560,62 @@ export class ReviewManager implements vscode.Disposable {
 
       const rel = repoRelativePath(gitContext.root, editor.document.uri.fsPath);
       const changed = files.find((f) => f.path === rel);
-      if (!changed || changed.status === "deleted") {
+      if (!changed || changed.status === "deleted" || changed.binary) {
         this.gutters.clearEditor(editor);
         continue;
       }
 
       this.gutters.setMarks(editor, gutterMarksFromHunks(changed.hunks));
     }
+  }
+
+  /**
+   * Refresh the SideDiff Changes sidebar from cached `base...HEAD`.
+   */
+  async refreshChangesTree(): Promise<void> {
+    const serial = ++this.treeSerial;
+    const gitContext = await this.resolveActiveGitContext();
+    if (serial !== this.treeSerial) {
+      return;
+    }
+
+    if (!gitContext) {
+      this.changesTree.setSnapshot(undefined, {
+        overlayActive: false,
+        files: [],
+      });
+      return;
+    }
+
+    this.autoStopIfBranchChanged(gitContext.root, gitContext.branch);
+    const runtime = this.getRuntime(gitContext.root);
+    const persisted = this.getPersisted(gitContext.root);
+
+    if (!runtime.overlayActive || !persisted.base) {
+      this.changesTree.setSnapshot(gitContext.root, {
+        overlayActive: false,
+        base: persisted.base,
+        files: [],
+      });
+      return;
+    }
+
+    const files = await this.diffPipeline.getChangedFiles({
+      repoRoot: gitContext.root,
+      base: persisted.base,
+      head: gitContext.head,
+      overlayActive: true,
+    });
+
+    if (serial !== this.treeSerial) {
+      return;
+    }
+
+    this.changesTree.setSnapshot(gitContext.root, {
+      overlayActive: true,
+      base: persisted.base,
+      files: files ?? [],
+    });
   }
 
   async refreshStatusBar(): Promise<void> {
@@ -529,7 +632,10 @@ export class ReviewManager implements vscode.Disposable {
     }
 
     this.ensureHeadWatcher(gitContext.root);
-    this.autoStopIfBranchChanged(gitContext.root, gitContext.branch);
+    if (this.autoStopIfBranchChanged(gitContext.root, gitContext.branch)) {
+      void this.refreshChangesTree();
+      void this.refreshGutters();
+    }
 
     if (serial !== this.refreshSerial) {
       return;

@@ -58,6 +58,10 @@
       {
         "command": "sidediff.showGitContext",
         "title": "SideDiff: Show Git Context"
+      },
+      {
+        "command": "sidediff.openTreeFile",
+        "title": "SideDiff: Open Changed File"
       }
     ],
     "keybindings": [
@@ -73,7 +77,32 @@
         "mac": "alt+[",
         "when": "editorTextFocus && !isInDiffEditor"
       }
-    ]
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "sidediff",
+          "title": "SideDiff",
+          "icon": "media/sidediff-activity.svg"
+        }
+      ]
+    },
+    "views": {
+      "sidediff": [
+        {
+          "id": "sidediff.changes",
+          "name": "Changes"
+        }
+      ]
+    },
+    "menus": {
+      "commandPalette": [
+        {
+          "command": "sidediff.openTreeFile",
+          "when": "false"
+        }
+      ]
+    }
   },
   "activationEvents": [
     "onStartupFinished"
