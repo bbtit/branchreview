@@ -1,7 +1,11 @@
 import * as vscode from "vscode";
-import { orderBaseCandidates } from "./baseCandidates.ts";
+import { GutterDecorations } from "../decorations/gutterDecorations.ts";
+import { DiffPipeline } from "../diff/diffPipeline.ts";
+import { gutterMarksFromHunks } from "../diff/gutterMarks.ts";
 import type { GitClient } from "../git/gitClient.ts";
+import { repoRelativePath } from "../git/repoPath.ts";
 import { getGitContextForFile, type GitContext } from "../git/repository.ts";
+import { orderBaseCandidates } from "./baseCandidates.ts";
 import {
   clearPersistedReview,
   emptyPersistedRepoReview,
@@ -19,33 +23,42 @@ import {
 const ENTER_REVISION_LABEL = "$(edit) Enter revision…";
 
 /**
- * Owns SideDiff review ON/OFF, base persistence, status bar, and branch watch (MVP-03).
- * Decorations arrive in MVP-05; this manager only tracks session state.
+ * Owns SideDiff review ON/OFF, base persistence, status bar, branch watch,
+ * and gutter decorations on the normal editor (MVP-03 / MVP-05).
  */
 export class ReviewManager implements vscode.Disposable {
   private readonly statusBar: vscode.StatusBarItem;
   private readonly disposables: vscode.Disposable[] = [];
+  private readonly diffPipeline: DiffPipeline;
+  private readonly gutters: GutterDecorations;
   private persisted: PersistedReviewMap;
   private readonly runtime = new Map<string, RuntimeRepoReview>();
   private readonly headWatchers = new Map<string, vscode.FileSystemWatcher>();
   private refreshSerial = 0;
+  private gutterSerial = 0;
 
   constructor(
     private readonly context: vscode.ExtensionContext,
     private readonly git: GitClient,
   ) {
     this.persisted = loadPersistedMap(context.workspaceState.get(WORKSPACE_STATE_KEY));
+    this.diffPipeline = new DiffPipeline(git);
+    this.gutters = new GutterDecorations(context.extensionUri);
     this.statusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
     this.statusBar.command = "sidediff.setBase";
     this.statusBar.show();
-    this.disposables.push(this.statusBar);
+    this.disposables.push(this.statusBar, this.gutters);
 
     this.disposables.push(
       vscode.window.onDidChangeActiveTextEditor(() => {
         void this.refreshStatusBar();
+        void this.refreshGutters();
       }),
       vscode.workspace.onDidSaveTextDocument(() => {
         void this.refreshStatusBar();
+      }),
+      vscode.window.onDidChangeVisibleTextEditors(() => {
+        void this.refreshGutters();
       }),
       vscode.window.onDidChangeWindowState((state) => {
         if (state.focused) {
@@ -55,6 +68,7 @@ export class ReviewManager implements vscode.Disposable {
     );
 
     void this.refreshStatusBar();
+    void this.refreshGutters();
   }
 
   dispose(): void {
@@ -143,6 +157,8 @@ export class ReviewManager implements vscode.Disposable {
     }
 
     this.runtime.set(gitContext.root, stopOverlay(runtime));
+    this.diffPipeline.clearCache();
+    this.gutters.clearAll();
     void vscode.window.showInformationMessage(
       `SideDiff: stopped (base ${this.getPersisted(gitContext.root).base ?? "none"} kept).`,
     );
@@ -164,6 +180,8 @@ export class ReviewManager implements vscode.Disposable {
 
     this.persisted[gitContext.root] = clearPersistedReview(previous);
     this.runtime.set(gitContext.root, emptyRuntimeRepoReview());
+    this.diffPipeline.clearCache();
+    this.gutters.clearAll();
     await this.savePersisted();
     void vscode.window.showInformationMessage("SideDiff: base cleared.");
     await this.refreshStatusBar();
@@ -217,9 +235,11 @@ export class ReviewManager implements vscode.Disposable {
       branchWhenStarted: gitContext.branch,
     });
     await this.savePersisted();
+    this.diffPipeline.clearCache();
     this.ensureHeadWatcher(gitContext.root);
     void vscode.window.showInformationMessage(`SideDiff: reviewing against ${revision}`);
     await this.refreshStatusBar();
+    await this.refreshGutters();
   }
 
   private async requireReviewableContext(action: string): Promise<GitContext | undefined> {
@@ -290,6 +310,8 @@ export class ReviewManager implements vscode.Disposable {
       return false;
     }
     this.runtime.set(repoRoot, stopOverlay(runtime));
+    this.diffPipeline.clearCache();
+    this.gutters.clearAll();
     void vscode.window.showInformationMessage(
       `SideDiff: stopped after branch change (base ${this.getPersisted(repoRoot).base ?? "none"} kept).`,
     );
@@ -309,6 +331,72 @@ export class ReviewManager implements vscode.Disposable {
       }
     }
     await this.refreshStatusBar();
+    await this.refreshGutters();
+  }
+
+  /**
+   * Paint gutters on visible editors from cached `base...HEAD` (no per-keystroke Git).
+   */
+  async refreshGutters(): Promise<void> {
+    const serial = ++this.gutterSerial;
+    const editors = vscode.window.visibleTextEditors.filter(
+      (e) => e.document.uri.scheme === "file",
+    );
+
+    if (editors.length === 0) {
+      this.gutters.clearAll();
+      return;
+    }
+
+    for (const editor of editors) {
+      if (serial !== this.gutterSerial) {
+        return;
+      }
+
+      const gitContext = await getGitContextForFile(this.git, editor.document.uri.fsPath);
+      if (serial !== this.gutterSerial) {
+        return;
+      }
+
+      if (!gitContext) {
+        this.gutters.clearEditor(editor);
+        continue;
+      }
+
+      this.autoStopIfBranchChanged(gitContext.root, gitContext.branch);
+      const runtime = this.getRuntime(gitContext.root);
+      const persisted = this.getPersisted(gitContext.root);
+
+      if (!runtime.overlayActive || !persisted.base) {
+        this.gutters.clearEditor(editor);
+        continue;
+      }
+
+      const files = await this.diffPipeline.getChangedFiles({
+        repoRoot: gitContext.root,
+        base: persisted.base,
+        head: gitContext.head,
+        overlayActive: true,
+      });
+
+      if (serial !== this.gutterSerial) {
+        return;
+      }
+
+      if (!files) {
+        this.gutters.clearEditor(editor);
+        continue;
+      }
+
+      const rel = repoRelativePath(gitContext.root, editor.document.uri.fsPath);
+      const changed = files.find((f) => f.path === rel);
+      if (!changed || changed.status === "deleted") {
+        this.gutters.clearEditor(editor);
+        continue;
+      }
+
+      this.gutters.setMarks(editor, gutterMarksFromHunks(changed.hunks));
+    }
   }
 
   async refreshStatusBar(): Promise<void> {
