@@ -2,8 +2,8 @@ import * as vscode from "vscode";
 import type { GutterKind, GutterMark } from "../diff/gutterMarks.ts";
 
 /**
- * Applies ADD / CHANGE / DELETE gutter icons on the normal text editor.
- * Does not open Diff Editor or rewrite the document (MVP-05).
+ * Applies ADD / CHANGE / DELETE gutter icons + overview ruler + hover on the
+ * normal text editor. Does not open Diff Editor or rewrite the document.
  */
 export class GutterDecorations implements vscode.Disposable {
   private readonly addType: vscode.TextEditorDecorationType;
@@ -12,16 +12,28 @@ export class GutterDecorations implements vscode.Disposable {
   private readonly trackedEditors = new Set<vscode.TextEditor>();
 
   constructor(extensionUri: vscode.Uri) {
-    this.addType = createGutterType(extensionUri, "gutter-add.svg");
-    this.changeType = createGutterType(extensionUri, "gutter-change.svg");
-    this.deleteType = createGutterType(extensionUri, "gutter-delete.svg");
+    this.addType = createGutterType(
+      extensionUri,
+      "gutter-add.svg",
+      "editorOverviewRuler.addedForeground",
+    );
+    this.changeType = createGutterType(
+      extensionUri,
+      "gutter-change.svg",
+      "editorOverviewRuler.modifiedForeground",
+    );
+    this.deleteType = createGutterType(
+      extensionUri,
+      "gutter-delete.svg",
+      "editorOverviewRuler.deletedForeground",
+    );
   }
 
-  /** Replace gutter marks on one editor (empty clears). */
+  /** Replace gutter / overview / hover marks on one editor (empty clears). */
   setMarks(editor: vscode.TextEditor, marks: readonly GutterMark[]): void {
     this.trackedEditors.add(editor);
     const lineCount = editor.document.lineCount;
-    const byKind: Record<GutterKind, vscode.Range[]> = {
+    const byKind: Record<GutterKind, vscode.DecorationOptions[]> = {
       add: [],
       change: [],
       delete: [],
@@ -33,7 +45,12 @@ export class GutterDecorations implements vscode.Disposable {
       }
       const lineIndex = mark.line - 1;
       const line = editor.document.lineAt(lineIndex);
-      byKind[mark.kind].push(line.range);
+      const hoverMessage = new vscode.MarkdownString(mark.hoverMarkdown);
+      hoverMessage.supportThemeIcons = false;
+      byKind[mark.kind].push({
+        range: line.range,
+        hoverMessage,
+      });
     }
 
     editor.setDecorations(this.addType, byKind.add);
@@ -75,11 +92,14 @@ export class GutterDecorations implements vscode.Disposable {
 function createGutterType(
   extensionUri: vscode.Uri,
   fileName: string,
+  overviewRulerColorId: string,
 ): vscode.TextEditorDecorationType {
   return vscode.window.createTextEditorDecorationType({
     gutterIconPath: vscode.Uri.joinPath(extensionUri, "media", fileName),
     // Stretch to the full gutter cell so consecutive lines form one bar.
     gutterIconSize: "100%",
+    overviewRulerColor: new vscode.ThemeColor(overviewRulerColorId),
+    overviewRulerLane: vscode.OverviewRulerLane.Center,
     rangeBehavior: vscode.DecorationRangeBehavior.ClosedClosed,
   });
 }

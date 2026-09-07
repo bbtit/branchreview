@@ -15,10 +15,13 @@ test("marks pure additions as add", () => {
       ],
     },
   ];
-  expect(gutterMarksFromHunks(hunks)).toEqual([
+  const marks = gutterMarksFromHunks(hunks);
+  expect(marks.map(({ kind, line }) => ({ kind, line }))).toEqual([
     { kind: "add", line: 1 },
     { kind: "add", line: 2 },
   ]);
+  expect(marks[0]!.hoverMarkdown).toContain("+a");
+  expect(marks[0]!.hoverMarkdown).toContain("+b");
 });
 
 test("marks delete-plus-add hunks as change on new lines", () => {
@@ -34,7 +37,12 @@ test("marks delete-plus-add hunks as change on new lines", () => {
       ],
     },
   ];
-  expect(gutterMarksFromHunks(hunks)).toEqual([{ kind: "change", line: 3 }]);
+  const marks = gutterMarksFromHunks(hunks);
+  expect(marks).toHaveLength(1);
+  expect(marks[0]!.kind).toBe("change");
+  expect(marks[0]!.line).toBe(3);
+  expect(marks[0]!.hoverMarkdown).toContain("-old");
+  expect(marks[0]!.hoverMarkdown).toContain("+new");
 });
 
 test("places a delete mark on the adjacent remaining line", () => {
@@ -50,6 +58,11 @@ test("places a delete mark on the adjacent remaining line", () => {
       ],
     },
   ];
-  expect(gutterMarksFromHunks(hunks)).toEqual([{ kind: "delete", line: 4 }]);
+  const marks = gutterMarksFromHunks(hunks);
+  expect(marks).toHaveLength(1);
+  expect(marks[0]!.kind).toBe("delete");
+  expect(marks[0]!.line).toBe(4);
+  expect(marks[0]!.hoverMarkdown).toContain("-gone1");
+  expect(marks[0]!.hoverMarkdown).toContain("-gone2");
   expect(deleteAnchorLine(0)).toBe(1);
 });
