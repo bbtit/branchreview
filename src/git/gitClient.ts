@@ -1,5 +1,7 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
+import { buildGitDiff } from "../diff/buildChangedFiles.ts";
+import type { ChangedFile, GitDiff } from "../diff/types.ts";
 
 const execFileAsync = promisify(execFile);
 
@@ -62,7 +64,6 @@ async function defaultRunner(cwd: string, args: readonly string[]): Promise<GitE
 
 /**
  * All Git CLI execution goes through this client (requirements §17).
- * Diff methods arrive in MVP-04.
  */
 export class GitClient {
   private readonly runner: GitRunner;
@@ -74,6 +75,36 @@ export class GitClient {
   async exec(cwd: string, args: readonly string[]): Promise<string> {
     const { stdout } = await this.runner(cwd, args);
     return stdout.replace(/\r?\n$/, "");
+  }
+
+  /**
+   * Three-dot diff only: `git diff --unified=0 <base>...<head>`.
+   * Compares merge-base(base, head)..head — never the working tree (D2).
+   */
+  async getUnifiedDiff(cwd: string, base: string, head = "HEAD"): Promise<string> {
+    return this.exec(cwd, ["diff", "--unified=0", `${base}...${head}`]);
+  }
+
+  /** `git diff --name-status <base>...<head>`. */
+  async getNameStatus(cwd: string, base: string, head = "HEAD"): Promise<string> {
+    return this.exec(cwd, ["diff", "--name-status", `${base}...${head}`]);
+  }
+
+  /** Parsed `base...HEAD` diff model (requirements §17 / §18). */
+  async getDiff(cwd: string, base: string, head = "HEAD"): Promise<GitDiff> {
+    const headSha =
+      head === "HEAD"
+        ? await this.getCurrentRevision(cwd)
+        : await this.exec(cwd, ["rev-parse", head]);
+    const [nameStatus, unified] = await Promise.all([
+      this.getNameStatus(cwd, base, head),
+      this.getUnifiedDiff(cwd, base, head),
+    ]);
+    return buildGitDiff(base, headSha, nameStatus, unified);
+  }
+
+  async getChangedFiles(cwd: string, base: string, head = "HEAD"): Promise<ChangedFile[]> {
+    return (await this.getDiff(cwd, base, head)).files;
   }
 
   async getRepositoryRoot(cwd: string): Promise<string> {
