@@ -32,8 +32,8 @@
   "contributes": {
     "commands": [
       {
-        "command": "sidediff.hello",
-        "title": "SideDiff: Hello"
+        "command": "sidediff.showGitContext",
+        "title": "SideDiff: Show Git Context"
       }
     ]
   },

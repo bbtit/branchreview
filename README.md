@@ -24,7 +24,13 @@ vp test
 vp pack   # or: pnpm build
 ```
 
-Press **F5** in VS Code / Cursor to launch an Extension Development Host. Command Palette → `SideDiff: Hello`.
+Press **F5** in VS Code / Cursor to launch an Extension Development Host. Command Palette → `SideDiff: Show Git Context` (active file’s repo root / branch / HEAD; detached HEAD is marked not reviewable).
+
+### Manual check (MVP-02)
+
+1. Open a file on a normal branch → command shows repo root, branch, HEAD.
+2. In a multi-root workspace, switch the active editor to a file in another repo → repo root/branch switch with the file (D9).
+3. `git checkout --detach` then run the command → detached / not reviewable (D15).
 
 ## Tooling
 
