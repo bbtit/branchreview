@@ -4,6 +4,7 @@ out/
 dist/
 *.vsix
 .vscode-test/
+.vite-hooks/
 
 # Logs & OS
 *.log
