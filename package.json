@@ -48,6 +48,10 @@
         "title": "SideDiff: Clear Base"
       },
       {
+        "command": "sidediff.clearReviewProgress",
+        "title": "SideDiff: Clear All Review Progress for This Repository"
+      },
+      {
         "command": "sidediff.nextChange",
         "title": "SideDiff: Next Change"
       },
@@ -62,6 +66,14 @@
       {
         "command": "sidediff.openTreeFile",
         "title": "SideDiff: Open Changed File"
+      },
+      {
+        "command": "sidediff.markReviewed",
+        "title": "SideDiff: Mark as Reviewed"
+      },
+      {
+        "command": "sidediff.markUnreviewed",
+        "title": "SideDiff: Mark as Unreviewed"
       }
     ],
     "keybindings": [
@@ -100,6 +112,18 @@
         {
           "command": "sidediff.openTreeFile",
           "when": "false"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "sidediff.markReviewed",
+          "when": "view == sidediff.changes && viewItem =~ /^sidediff\\.file(\\.(binary|deleted))?$/",
+          "group": "1_review@1"
+        },
+        {
+          "command": "sidediff.markUnreviewed",
+          "when": "view == sidediff.changes && viewItem =~ /^sidediff\\.file(\\.(binary|deleted))?\\.reviewed$/",
+          "group": "1_review@1"
         }
       ]
     }

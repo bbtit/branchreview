@@ -16,6 +16,12 @@ export type OpenTreeFileArgs = {
   status: ChangedFile["status"];
 };
 
+/** Payload for mark reviewed / unreviewed from the tree context menu. */
+export type MarkTreeFileArgs = {
+  repoRoot: string;
+  path: string;
+};
+
 /**
  * Sidebar Changes list. Opens normal editors only — never Diff Editor.
  */
@@ -43,12 +49,14 @@ export class ChangesTreeProvider
   }
 
   getTreeItem(element: ChangesTreeRow): vscode.TreeItem {
-    if (element.kind === "message" || element.kind === "base") {
+    if (element.kind === "message" || element.kind === "base" || element.kind === "progress") {
       const item = new vscode.TreeItem(element.label, vscode.TreeItemCollapsibleState.None);
       item.description = element.description;
       item.contextValue = element.kind;
       if (element.kind === "base") {
         item.iconPath = new vscode.ThemeIcon("git-compare");
+      } else if (element.kind === "progress") {
+        item.iconPath = new vscode.ThemeIcon("checklist");
       }
       return item;
     }
@@ -56,12 +64,8 @@ export class ChangesTreeProvider
     const item = new vscode.TreeItem(element.label, vscode.TreeItemCollapsibleState.None);
     item.description = element.description;
     item.tooltip = tooltipForFileRow(element);
-    item.contextValue = element.openable
-      ? element.binary
-        ? "sidediff.file.binary"
-        : "sidediff.file"
-      : "sidediff.file.deleted";
-    item.iconPath = iconForStatus(element.status, element.binary);
+    item.contextValue = contextValueForFileRow(element);
+    item.iconPath = iconForStatus(element.status, element.binary, element.reviewed);
 
     if (this.repoRoot) {
       item.command = {
@@ -88,7 +92,24 @@ export class ChangesTreeProvider
   }
 }
 
-function iconForStatus(status: ChangedFile["status"], binary: boolean): vscode.ThemeIcon {
+function contextValueForFileRow(element: Extract<ChangesTreeRow, { kind: "file" }>): string {
+  if (!element.openable) {
+    return element.reviewed ? "sidediff.file.deleted.reviewed" : "sidediff.file.deleted";
+  }
+  if (element.binary) {
+    return element.reviewed ? "sidediff.file.binary.reviewed" : "sidediff.file.binary";
+  }
+  return element.reviewed ? "sidediff.file.reviewed" : "sidediff.file";
+}
+
+function iconForStatus(
+  status: ChangedFile["status"],
+  binary: boolean,
+  reviewed: boolean,
+): vscode.ThemeIcon {
+  if (reviewed) {
+    return new vscode.ThemeIcon("pass");
+  }
   if (binary) {
     return new vscode.ThemeIcon("file-binary");
   }
@@ -105,11 +126,12 @@ function iconForStatus(status: ChangedFile["status"], binary: boolean): vscode.T
 }
 
 function tooltipForFileRow(row: Extract<ChangesTreeRow, { kind: "file" }>): string {
+  const status = row.reviewed ? "reviewed" : "unreviewed";
   if (!row.openable) {
-    return `${row.path} — deleted on this branch`;
+    return `${row.path} — deleted on this branch · ${status}`;
   }
   if (row.binary) {
-    return `${row.path} — binary (no gutter decorations)`;
+    return `${row.path} — binary (no gutter decorations) · ${status}`;
   }
-  return row.path;
+  return `${row.path} · ${status}`;
 }

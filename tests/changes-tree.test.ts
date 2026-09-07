@@ -33,10 +33,11 @@ test("shows guidance when review overlay is off", () => {
   ]);
 });
 
-test("lists base then change files when overlay is on", () => {
+test("lists base, progress, then change files when overlay is on", () => {
   const rows = changesTreeRowsFromSnapshot({
     overlayActive: true,
     base: "origin/main",
+    reviewedPaths: ["src/a.ts", "src/old.ts"],
     files: [
       file({ path: "src/a.ts", status: "modified", additions: 12, deletions: 4 }),
       file({ path: "src/b.ts", status: "added", additions: 84 }),
@@ -56,30 +57,41 @@ test("lists base then change files when overlay is on", () => {
     id: "base:origin/main",
     label: "Base: origin/main",
   });
-  expect(rows.slice(1).map((r) => (r.kind === "file" ? r.label : r.kind))).toEqual([
-    "M src/a.ts",
+  expect(rows[1]).toEqual({
+    kind: "progress",
+    id: "progress",
+    label: "Review Progress",
+    description: "2 / 5 files reviewed",
+    reviewed: 2,
+    total: 5,
+  });
+  expect(rows.slice(2).map((r) => (r.kind === "file" ? r.label : r.kind))).toEqual([
+    "✓ M src/a.ts",
     "A src/b.ts",
-    "D src/old.ts",
+    "✓ D src/old.ts",
     "R src/new.ts",
     "M img/logo.png",
   ]);
-  expect(rows[1]).toMatchObject({
+  expect(rows[2]).toMatchObject({
     kind: "file",
     description: "+12 -4",
     openable: true,
     binary: false,
+    reviewed: true,
   });
-  expect(rows[3]).toMatchObject({
+  expect(rows[4]).toMatchObject({
     kind: "file",
     path: "src/old.ts",
     openable: false,
     description: "-42",
+    reviewed: true,
   });
-  expect(rows[5]).toMatchObject({
+  expect(rows[6]).toMatchObject({
     kind: "file",
     description: "binary",
     openable: true,
     binary: true,
+    reviewed: false,
   });
 });
 
@@ -104,6 +116,7 @@ test("shows empty changes row when overlay is on but diff is empty", () => {
 test("marks deleted files as not openable", () => {
   const row = fileRowFromChangedFile(file({ path: "gone.ts", status: "deleted", deletions: 3 }));
   expect(row.openable).toBe(false);
+  expect(row.reviewed).toBe(false);
   expect(statusLetter("deleted")).toBe("D");
 });
 

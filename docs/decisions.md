@@ -10,22 +10,23 @@ Grilling で確定した判断。要件の正本は [`requirements.md`](./requir
 
 ## Session lifecycle
 
-| ID  | Decision                                                                                                                             |
-| --- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| D1  | base を設定した瞬間から overlay が有効。`Stop Review` / `Clear Base` で消える                                                        |
-| D3  | base は workspace ごとに永続化するが、**起動時は overlay OFF**。`Resume Review` または `Set Base` で再開                             |
-| D4  | コマンドは次の4つ: `SideDiff: Set Base` / `SideDiff: Resume Review` / `SideDiff: Stop Review` / `SideDiff: Clear Base`               |
-| D5  | レビュー中に別ブランチへ checkout したら **自動 Stop**（base 記憶は残す → Resume 可能）                                              |
-| D13 | overlay ON のまま同じブランチで HEAD が進んだら（commit / amend / pull 等）、`base...HEAD` を自動再取得して decoration / Tree を更新 |
-| D15 | **detached HEAD ではレビュー開始不可**（branch に checkout してから、と案内）                                                        |
-| D17 | 無効な base（存在しない revision）はエラー表示して overlay を開始しない。前回の有効 base 記憶は触らない                              |
-| D14 | `Clear Base` は reviewed 進捗も破棄する                                                                                              |
-| D18 | コマンドプレフィックスは製品名で統一: `SideDiff: …`（要件書の `PR Review:` 表記は説明用）                                            |
+| ID  | Decision                                                                                                                                                       |
+| --- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| D1  | base を設定した瞬間から overlay が有効。`Stop Review` / `Clear Base` で消える                                                                                  |
+| D3  | base は workspace ごとに永続化するが、**起動時は overlay OFF**。`Resume Review` または `Set Base` で再開                                                       |
+| D4  | セッション系コマンド: `SideDiff: Set Base` / `SideDiff: Resume Review` / `SideDiff: Stop Review` / `SideDiff: Clear Base`。進捗系は Review status 節（D22 等） |
+| D5  | レビュー中に別ブランチへ checkout したら **自動 Stop**（base 記憶は残す → Resume 可能）                                                                        |
+| D13 | overlay ON のまま同じブランチで HEAD が進んだら（commit / amend / pull 等）、`base...HEAD` を自動再取得して decoration / Tree を更新                           |
+| D15 | **detached HEAD ではレビュー開始不可**（branch に checkout してから、と案内）                                                                                  |
+| D17 | 無効な base（存在しない revision）はエラー表示して overlay を開始しない。前回の有効 base 記憶は触らない                                                        |
+| D14 | `Clear Base` は reviewed 進捗も破棄する                                                                                                                        |
+| D18 | コマンドプレフィックスは製品名で統一: `SideDiff: …`（要件書の `PR Review:` 表記は説明用）                                                                      |
 
 ### Stop vs Clear
 
 - **Stop Review** — overlay を止める。base 記憶は残す（Resume 可能）
 - **Clear Base** — base 記憶を捨て、reviewed 進捗も破棄
+- **Clear All Review Progress for This Repository** — 当該 repo の reviewed 進捗を全 `(base, branch)` 分破棄。base / overlay は維持（D22）
 
 ---
 
@@ -66,9 +67,10 @@ Grilling で確定した判断。要件の正本は [`requirements.md`](./requir
 
 ## Review status
 
-| ID  | Decision                                                                                                                              |
-| --- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| D10 | reviewed 状態のキーは **`(repo, base, branch名)`**。同じ feature branch 上なら commit が増えても維持。HEAD tip 単位ではリセットしない |
+| ID  | Decision                                                                                                                                                        |
+| --- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| D10 | reviewed 状態のキーは **`(repo, base, branch名)`**。同じ feature branch 上なら commit が増えても維持。HEAD tip 単位ではリセットしない                           |
+| D22 | `SideDiff: Clear All Review Progress for This Repository` は当該 repo の reviewed 進捗を **全 `(base, branch)` 分** 破棄する。base と overlay ON/OFF は触らない |
 
 ---
 

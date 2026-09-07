@@ -15,16 +15,21 @@ import {
 import {
   CHANGES_VIEW_ID,
   ChangesTreeProvider,
+  type MarkTreeFileArgs,
   type OpenTreeFileArgs,
 } from "../views/changesTreeView.ts";
 import { orderBaseCandidates } from "./baseCandidates.ts";
 import {
   clearPersistedReview,
+  clearReviewedProgress,
   emptyPersistedRepoReview,
   emptyRuntimeRepoReview,
   formatStatusBarText,
   formatStatusBarTooltip,
+  getReviewedPaths,
   loadPersistedMap,
+  markPathReviewed,
+  markPathUnreviewed,
   stopOverlay,
   WORKSPACE_STATE_KEY,
   type PersistedRepoReview,
@@ -199,7 +204,7 @@ export class ReviewManager implements vscode.Disposable {
     }
 
     const previous = this.getPersisted(gitContext.root);
-    if (!previous.base && previous.reviewedPaths.length === 0) {
+    if (!previous.base && Object.keys(previous.reviewedBySession).length === 0) {
       void vscode.window.showInformationMessage("SideDiff: no base to clear.");
       return;
     }
@@ -212,6 +217,41 @@ export class ReviewManager implements vscode.Disposable {
     void vscode.window.showInformationMessage("SideDiff: base cleared.");
     await this.refreshStatusBar();
     await this.refreshChangesTree();
+  }
+
+  /** Drop all (base, branch) reviewed progress for this repo; keep base / overlay (D22). */
+  async clearReviewProgress(): Promise<void> {
+    const gitContext = await this.resolveActiveGitContext();
+    if (!gitContext) {
+      void vscode.window.showWarningMessage("SideDiff: open a file inside a Git repository.");
+      return;
+    }
+
+    const previous = this.getPersisted(gitContext.root);
+    const sessionCount = Object.keys(previous.reviewedBySession).length;
+    if (sessionCount === 0) {
+      void vscode.window.showInformationMessage(
+        "SideDiff: no review progress in this repository to clear.",
+      );
+      return;
+    }
+
+    this.persisted[gitContext.root] = clearReviewedProgress(previous);
+    await this.savePersisted();
+    void vscode.window.showInformationMessage(
+      `SideDiff: cleared all review progress for this repository (${sessionCount} session${sessionCount === 1 ? "" : "s"}).`,
+    );
+    await this.refreshChangesTree();
+  }
+
+  /** Mark the active editor (or tree-selected) file as reviewed (D10). */
+  async markReviewed(args?: unknown): Promise<void> {
+    await this.setReviewedState(true, args);
+  }
+
+  /** Mark the active editor (or tree-selected) file as unreviewed. */
+  async markUnreviewed(args?: unknown): Promise<void> {
+    await this.setReviewedState(false, args);
   }
 
   async nextChange(): Promise<void> {
@@ -251,8 +291,14 @@ export class ReviewManager implements vscode.Disposable {
     await this.refreshGutters();
   }
 
-  /** Exposed for tests / future decoration layer. */
-  getSessionSnapshot(repoRoot: string): {
+  /**
+   * Exposed for tests / future decoration layer.
+   * `reviewedPaths` are for the given branch under the remembered base (D10).
+   */
+  getSessionSnapshot(
+    repoRoot: string,
+    branch?: string | null,
+  ): {
     base?: string;
     overlayActive: boolean;
     reviewedPaths: string[];
@@ -262,7 +308,7 @@ export class ReviewManager implements vscode.Disposable {
     return {
       base: persisted.base,
       overlayActive: runtime.overlayActive,
-      reviewedPaths: [...persisted.reviewedPaths],
+      reviewedPaths: getReviewedPaths(persisted, persisted.base, branch ?? null),
     };
   }
 
@@ -400,6 +446,47 @@ export class ReviewManager implements vscode.Disposable {
     await this.refreshChangesTree();
   }
 
+  private async setReviewedState(reviewed: boolean, args?: unknown): Promise<void> {
+    const session = await this.requireActiveReviewSession("update review status");
+    if (!session) {
+      return;
+    }
+    const { gitContext, base } = session;
+    const branch = gitContext.branch;
+    if (!branch) {
+      void vscode.window.showErrorMessage(
+        "SideDiff: check out a branch before updating review status (detached HEAD is not supported).",
+      );
+      return;
+    }
+
+    const target = resolveMarkTarget(args);
+    if (target?.repoRoot && target.repoRoot !== gitContext.root) {
+      void vscode.window.showWarningMessage(
+        "SideDiff: that file belongs to a different repository than the active review.",
+      );
+      return;
+    }
+
+    const path = target?.path ?? this.cursorInRepo(gitContext.root)?.path;
+    if (!path) {
+      void vscode.window.showWarningMessage(
+        "SideDiff: open a changed file (or use the Changes tree) to update review status.",
+      );
+      return;
+    }
+
+    const previous = this.getPersisted(gitContext.root);
+    this.persisted[gitContext.root] = reviewed
+      ? markPathReviewed(previous, base, branch, path)
+      : markPathUnreviewed(previous, base, branch, path);
+    await this.savePersisted();
+    void vscode.window.showInformationMessage(
+      reviewed ? `SideDiff: marked ${path} as reviewed` : `SideDiff: marked ${path} as unreviewed`,
+    );
+    await this.refreshChangesTree();
+  }
+
   private async navigateChange(direction: "next" | "previous"): Promise<void> {
     const session = await this.requireActiveReviewSession();
     if (!session) {
@@ -439,11 +526,11 @@ export class ReviewManager implements vscode.Disposable {
   }
 
   /**
-   * Overlay must be ON with a base; otherwise navigation has nothing to walk.
+   * Overlay must be ON with a base; otherwise review actions have nothing to bind to.
    */
-  private async requireActiveReviewSession(): Promise<
-    { gitContext: GitContext; base: string } | undefined
-  > {
+  private async requireActiveReviewSession(
+    purpose = "navigate changes",
+  ): Promise<{ gitContext: GitContext; base: string } | undefined> {
     const gitContext = await this.resolveActiveGitContext();
     if (!gitContext) {
       void vscode.window.showWarningMessage("SideDiff: open a file inside a Git repository.");
@@ -458,7 +545,7 @@ export class ReviewManager implements vscode.Disposable {
     const persisted = this.getPersisted(gitContext.root);
     if (!runtime.overlayActive || !persisted.base) {
       void vscode.window.showInformationMessage(
-        "SideDiff: start a review (Set Base or Resume Review) to navigate changes.",
+        `SideDiff: start a review (Set Base or Resume Review) to ${purpose}.`,
       );
       return undefined;
     }
@@ -596,6 +683,7 @@ export class ReviewManager implements vscode.Disposable {
         overlayActive: false,
         base: persisted.base,
         files: [],
+        reviewedPaths: [],
       });
       return;
     }
@@ -615,6 +703,7 @@ export class ReviewManager implements vscode.Disposable {
       overlayActive: true,
       base: persisted.base,
       files: files ?? [],
+      reviewedPaths: getReviewedPaths(persisted, persisted.base, gitContext.branch),
     });
   }
 
@@ -667,4 +756,19 @@ export class ReviewManager implements vscode.Disposable {
       repoRoot: gitContext.root,
     });
   }
+}
+
+/** Accept tree row, MarkTreeFileArgs, or undefined (fall back to active editor). */
+function resolveMarkTarget(args: unknown): MarkTreeFileArgs | undefined {
+  if (!args || typeof args !== "object") {
+    return undefined;
+  }
+  const record = args as Record<string, unknown>;
+  if (typeof record.path !== "string" || record.path.length === 0) {
+    return undefined;
+  }
+  return {
+    path: record.path,
+    repoRoot: typeof record.repoRoot === "string" ? record.repoRoot : "",
+  };
 }

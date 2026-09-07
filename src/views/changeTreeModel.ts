@@ -1,15 +1,26 @@
 import type { ChangedFile, FileChangeStatus } from "../diff/types.ts";
+import { countReviewedProgress } from "../review/reviewState.ts";
 
 /** Snapshot the Changes Tree renders (no VS Code types). */
 export type ChangesTreeSnapshot = {
   overlayActive: boolean;
   base?: string;
   files: readonly ChangedFile[];
+  /** Reviewed paths for the current `(base, branch)` session (D10). */
+  reviewedPaths?: readonly string[];
 };
 
 export type ChangesTreeRow =
   | { kind: "message"; id: string; label: string; description?: string }
   | { kind: "base"; id: string; label: string; description?: string }
+  | {
+      kind: "progress";
+      id: string;
+      label: string;
+      description: string;
+      reviewed: number;
+      total: number;
+    }
   | {
       kind: "file";
       id: string;
@@ -20,11 +31,12 @@ export type ChangesTreeRow =
       /** Deleted files must not open an editor (D12). */
       openable: boolean;
       binary: boolean;
+      reviewed: boolean;
     };
 
 /**
  * Flatten a review snapshot into ordered tree rows.
- * Overlay off → one guidance row; on → base header then file rows.
+ * Overlay off → one guidance row; on → base, progress, then file rows.
  */
 export function changesTreeRowsFromSnapshot(snapshot: ChangesTreeSnapshot): ChangesTreeRow[] {
   if (!snapshot.overlayActive || !snapshot.base) {
@@ -37,6 +49,9 @@ export function changesTreeRowsFromSnapshot(snapshot: ChangesTreeSnapshot): Chan
       },
     ];
   }
+
+  const reviewedPaths = snapshot.reviewedPaths ?? [];
+  const reviewedSet = new Set(reviewedPaths);
 
   const rows: ChangesTreeRow[] = [
     {
@@ -56,27 +71,43 @@ export function changesTreeRowsFromSnapshot(snapshot: ChangesTreeSnapshot): Chan
     return rows;
   }
 
+  const { reviewed, total } = countReviewedProgress(
+    snapshot.files.map((f) => f.path),
+    reviewedPaths,
+  );
+  rows.push({
+    kind: "progress",
+    id: "progress",
+    label: "Review Progress",
+    description: `${reviewed} / ${total} files reviewed`,
+    reviewed,
+    total,
+  });
+
   for (const file of snapshot.files) {
-    rows.push(fileRowFromChangedFile(file));
+    rows.push(fileRowFromChangedFile(file, reviewedSet.has(file.path)));
   }
   return rows;
 }
 
 export function fileRowFromChangedFile(
   file: ChangedFile,
+  reviewed = false,
 ): Extract<ChangesTreeRow, { kind: "file" }> {
   const letter = statusLetter(file.status);
   const binary = file.binary === true;
   const openable = file.status !== "deleted";
+  const check = reviewed ? "✓ " : "";
   return {
     kind: "file",
     id: `file:${file.path}`,
     path: file.path,
     status: file.status,
-    label: `${letter} ${file.path}`,
+    label: `${check}${letter} ${file.path}`,
     description: formatFileStats(file),
     openable,
     binary,
+    reviewed,
   };
 }
 

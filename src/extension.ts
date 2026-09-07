@@ -13,12 +13,21 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand("sidediff.resumeReview", () => reviewManager.resumeReview()),
     vscode.commands.registerCommand("sidediff.stopReview", () => reviewManager.stopReview()),
     vscode.commands.registerCommand("sidediff.clearBase", () => reviewManager.clearBase()),
+    vscode.commands.registerCommand("sidediff.clearReviewProgress", () =>
+      reviewManager.clearReviewProgress(),
+    ),
     vscode.commands.registerCommand("sidediff.nextChange", () => reviewManager.nextChange()),
     vscode.commands.registerCommand("sidediff.previousChange", () =>
       reviewManager.previousChange(),
     ),
     vscode.commands.registerCommand("sidediff.openTreeFile", (args) =>
       reviewManager.openTreeFile(args),
+    ),
+    vscode.commands.registerCommand("sidediff.markReviewed", (args) =>
+      reviewManager.markReviewed(args),
+    ),
+    vscode.commands.registerCommand("sidediff.markUnreviewed", (args) =>
+      reviewManager.markUnreviewed(args),
     ),
     vscode.commands.registerCommand("sidediff.showGitContext", async () => {
       const editor = vscode.window.activeTextEditor;
