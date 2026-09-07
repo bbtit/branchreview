@@ -78,6 +78,7 @@ Grilling で確定した判断。要件の正本は [`requirements.md`](./requir
 |---|---|
 | D11 | status bar を出す。例: `SideDiff: origin/main` / `SideDiff: off` / `… local changes`。ON/OFF・base・dirty が一目で分かるようにする |
 | D16 | 表示名 `SideDiff`、パッケージ ID `sidediff` |
+| D20 | パッケージマネージャは **pnpm**（npm / yarn は使わない）。lockfile は `pnpm-lock.yaml` をコミット。VS Code 拡張で必要なら `.npmrc` で hoist を調整してよい |
 
 ---
 
