@@ -98,6 +98,21 @@ test("has no context when the file is outside any repository", async () => {
   expect(context).toBeUndefined();
 });
 
+test("resolves context when given the repository root directory", async () => {
+  const root = await createTempDir("sidediff-dir-");
+  const { head } = await gitInitWithCommit(root, "main");
+
+  const context = await getGitContextForFile(git, root);
+
+  expect(context).toEqual({
+    root,
+    head,
+    branch: "main",
+    detached: false,
+    reviewable: true,
+  });
+});
+
 test("looks up context only through the shared Git client", async () => {
   const root = await createTempDir("sidediff-client-");
   const { filePath } = await gitInitWithCommit(root);

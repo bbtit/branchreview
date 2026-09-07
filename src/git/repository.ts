@@ -1,3 +1,4 @@
+import { stat } from "node:fs/promises";
 import { dirname } from "node:path";
 import type { GitClient } from "./gitClient.ts";
 import { GitError } from "./gitClient.ts";
@@ -22,20 +23,24 @@ export type GitContext = {
   reviewable: boolean;
 };
 
-function workingDirectoryFor(filePath: string): string {
-  // Files use dirname; directories can be used as cwd directly by callers.
-  return dirname(filePath);
+async function workingDirectoryFor(path: string): Promise<string> {
+  try {
+    const info = await stat(path);
+    return info.isDirectory() ? path : dirname(path);
+  } catch {
+    return dirname(path);
+  }
 }
 
 /**
- * Return repo / branch / HEAD for the Git repository that owns `filePath`.
- * `undefined` when the path is not inside a repository.
+ * Return repo / branch / HEAD for the Git repository that owns `path`
+ * (file or directory). `undefined` when the path is not inside a repository.
  */
 export async function getGitContextForFile(
   client: GitClient,
-  filePath: string,
+  path: string,
 ): Promise<GitContext | undefined> {
-  const cwd = workingDirectoryFor(filePath);
+  const cwd = await workingDirectoryFor(path);
   try {
     const root = await client.getRepositoryRoot(cwd);
     const head = await client.getCurrentRevision(root);

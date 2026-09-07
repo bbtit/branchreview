@@ -32,11 +32,30 @@
   "contributes": {
     "commands": [
       {
+        "command": "sidediff.setBase",
+        "title": "SideDiff: Set Base"
+      },
+      {
+        "command": "sidediff.resumeReview",
+        "title": "SideDiff: Resume Review"
+      },
+      {
+        "command": "sidediff.stopReview",
+        "title": "SideDiff: Stop Review"
+      },
+      {
+        "command": "sidediff.clearBase",
+        "title": "SideDiff: Clear Base"
+      },
+      {
         "command": "sidediff.showGitContext",
         "title": "SideDiff: Show Git Context"
       }
     ]
   },
+  "activationEvents": [
+    "onStartupFinished"
+  ],
   "devEngines": {
     "packageManager": {
       "name": "pnpm",

@@ -62,7 +62,7 @@ async function defaultRunner(cwd: string, args: readonly string[]): Promise<GitE
 
 /**
  * All Git CLI execution goes through this client (requirements §17).
- * Diff methods arrive in MVP-04; this ticket covers context only.
+ * Diff methods arrive in MVP-04.
  */
 export class GitClient {
   private readonly runner: GitRunner;
@@ -99,5 +99,44 @@ export class GitClient {
 
   async isDetachedHead(cwd: string): Promise<boolean> {
     return (await this.getBranchName(cwd)) === null;
+  }
+
+  /**
+   * True when `revision` resolves to a commit (D17).
+   * Uses `rev^{commit}` so tags/branches that point at commits are accepted.
+   */
+  async revisionExists(cwd: string, revision: string): Promise<boolean> {
+    try {
+      await this.exec(cwd, ["rev-parse", "--verify", `${revision}^{commit}`]);
+      return true;
+    } catch (error) {
+      if (error instanceof GitError) {
+        return false;
+      }
+      throw error;
+    }
+  }
+
+  /** Local and remote branch short names (`main`, `origin/main`, …). */
+  async listBranchRefs(cwd: string): Promise<string[]> {
+    const stdout = await this.exec(cwd, [
+      "for-each-ref",
+      "--format=%(refname:short)",
+      "refs/heads/",
+      "refs/remotes/",
+    ]);
+    if (!stdout) {
+      return [];
+    }
+    return stdout.split(/\r?\n/).filter((line) => line.length > 0);
+  }
+
+  /**
+   * True when the working tree or index differs from HEAD
+   * (untracked files count as dirty).
+   */
+  async isWorkingTreeDirty(cwd: string): Promise<boolean> {
+    const stdout = await this.exec(cwd, ["status", "--porcelain"]);
+    return stdout.length > 0;
   }
 }
