@@ -79,6 +79,25 @@ Grilling で確定した判断。要件の正本は [`requirements.md`](./requir
 | D11 | status bar を出す。例: `SideDiff: origin/main` / `SideDiff: off` / `… local changes`。ON/OFF・base・dirty が一目で分かるようにする |
 | D16 | 表示名 `SideDiff`、パッケージ ID `sidediff` |
 | D20 | パッケージマネージャは **pnpm**（npm / yarn は使わない）。lockfile は `pnpm-lock.yaml` をコミット。VS Code 拡張で必要なら `.npmrc` で hoist を調整してよい |
+| D21 | 開発ツールチェーンは **VoidZero / Vite+**（`vp` CLI）を正とする。ESLint / Prettier / Jest / webpack は使わない |
+
+### Tooling (D21) — 詳細
+
+| 用途 | ツール | コマンド |
+|---|---|---|
+| 依存関係 | pnpm（D20）。`vp install` を使っても最終的に pnpm でよい | `pnpm install` / `vp install` |
+| テスト | **Vitest**（Vite+ 同梱） | `vp test`（package script もこれに揃える） |
+| Lint | **Oxlint** | `vp check` に含める |
+| Format | **Oxfmt** | `vp check` / `vp check --fix` |
+| 型チェック | Vite+ の check 経路（tsgo 等） | `vp check` |
+| 拡張のバンドル | VoidZero 系（**tsdown** または Vite library build）。webpack 禁止 | `vp build` または `pnpm build` → `vp` 経由 |
+
+運用ルール:
+
+- 日常の品質ゲートは **`vp check` + `vp test`**
+- ユニットテストは Node 環境の Vitest（まずは `diffParser` 等の純ロジック）。Extension Host 結合は必要になったら後続 ticket で追加
+- 設定は可能な限り `vite.config.ts`（Vite+ 統合 config）に集約。個別の `.eslintrc` / `.prettierrc` / `jest.config` は作らない
+- Vite+ は alpha でも採用する（ユーザー方針）。壊れたら upstream に合わせて直し、代替に ESLint/Jest へ戻さない
 
 ---
 

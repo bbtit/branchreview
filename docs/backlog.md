@@ -2,7 +2,7 @@
 
 アジャイル運用: **同時 In Progress は1つ。番号順に消化。**  
 各 issue に **前提条件** と **終了条件** がある。終了条件を満たすまで次へ進まない。  
-パッケージマネージャは **pnpm**（`docs/decisions.md` D20。npm は使わない）。
+パッケージマネージャは **pnpm**（D20）。開発ツールは **Vite+ / VoidZero**（D21: `vp check` / `vp test` / `vp build`）。ESLint・Prettier・Jest・webpack は使わない。
 
 - Epic: https://github.com/bbtit/sidediff/issues/13
 - Milestone: https://github.com/bbtit/sidediff/milestone/1
