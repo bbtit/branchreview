@@ -22,10 +22,22 @@ type CacheEntry = DiffCacheKey & {
 /**
  * Loads `base...HEAD` changed files with a (repo, base, HEAD) cache.
  * Does not run Git when overlay is off or base is unset (MVP-04).
+ * Coalesces in-flight fetches for the same key so gutters + Tree refresh
+ * do not double-hit Git (MVP-10 / requirements §21).
  * Pure of VS Code UI — decorations / Tree subscribe later.
  */
 export class DiffPipeline {
   private cache: CacheEntry | undefined;
+  private inflight:
+    | {
+        repoRoot: string;
+        base: string;
+        head: string;
+        promise: Promise<ChangedFile[]>;
+      }
+    | undefined;
+  /** Bumped on clearCache so a stale in-flight fetch cannot repopulate. */
+  private generation = 0;
 
   constructor(private readonly git: GitClient) {}
 
@@ -48,19 +60,55 @@ export class DiffPipeline {
       return hit.files;
     }
 
-    const files = await this.git.getChangedFiles(query.repoRoot, query.base, query.head);
-    this.cache = {
+    const pending = this.inflight;
+    if (
+      pending &&
+      pending.repoRoot === query.repoRoot &&
+      pending.base === query.base &&
+      pending.head === query.head
+    ) {
+      return pending.promise;
+    }
+
+    const generation = this.generation;
+    const base = query.base;
+    const promise = this.git.getChangedFiles(query.repoRoot, base, query.head).then(
+      (files) => {
+        if (this.inflight?.promise === promise) {
+          this.inflight = undefined;
+        }
+        if (generation === this.generation) {
+          this.cache = {
+            repoRoot: query.repoRoot,
+            base,
+            head: query.head,
+            files,
+          };
+        }
+        return files;
+      },
+      (error: unknown) => {
+        if (this.inflight?.promise === promise) {
+          this.inflight = undefined;
+        }
+        throw error;
+      },
+    );
+
+    this.inflight = {
       repoRoot: query.repoRoot,
-      base: query.base,
+      base,
       head: query.head,
-      files,
+      promise,
     };
-    return files;
+    return promise;
   }
 
   /** Drop cached diff (e.g. Stop / Clear, or forced refresh). */
   clearCache(): void {
     this.cache = undefined;
+    this.inflight = undefined;
+    this.generation += 1;
   }
 
   /** Test/inspection helper — current cache key, if any. */

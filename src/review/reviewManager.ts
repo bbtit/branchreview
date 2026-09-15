@@ -18,7 +18,9 @@ import {
   type MarkTreeFileArgs,
   type OpenTreeFileArgs,
 } from "../views/changesTreeView.ts";
+import { debounce } from "../util/debounce.ts";
 import { orderBaseCandidates } from "./baseCandidates.ts";
+import { orderEditorsActiveFirst } from "./editorOrder.ts";
 import {
   clearPersistedReview,
   clearReviewedProgress,
@@ -38,6 +40,8 @@ import {
 } from "./reviewState.ts";
 
 const ENTER_REVISION_LABEL = "$(edit) Enter revision…";
+/** Quiet window before reacting to Git tip / ref file events (MVP-10). */
+const HEAD_CHANGE_DEBOUNCE_MS = 200;
 
 /**
  * Owns SideDiff review ON/OFF, base persistence, status bar, branch watch,
@@ -51,7 +55,12 @@ export class ReviewManager implements vscode.Disposable {
   private readonly changesTree: ChangesTreeProvider;
   private persisted: PersistedReviewMap;
   private readonly runtime = new Map<string, RuntimeRepoReview>();
-  private readonly headWatchers = new Map<string, vscode.FileSystemWatcher>();
+  /** Composite disposables for git-dir watchers (HEAD tip + branch refs). */
+  private readonly headWatchers = new Map<string, vscode.Disposable>();
+  private readonly headWatcherStarting = new Set<string>();
+  /** Last observed HEAD SHA per repo — skip gutter/Tree refetch when unchanged. */
+  private readonly lastSeenHead = new Map<string, string>();
+  private readonly scheduleHeadChangeCheck: (() => void) & { cancel(): void };
   private refreshSerial = 0;
   private gutterSerial = 0;
   private treeSerial = 0;
@@ -67,6 +76,9 @@ export class ReviewManager implements vscode.Disposable {
     this.statusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
     this.statusBar.command = "sidediff.setBase";
     this.statusBar.show();
+    this.scheduleHeadChangeCheck = debounce(() => {
+      void this.onPossibleHeadChange();
+    }, HEAD_CHANGE_DEBOUNCE_MS);
     this.disposables.push(
       this.statusBar,
       this.gutters,
@@ -75,15 +87,18 @@ export class ReviewManager implements vscode.Disposable {
         treeDataProvider: this.changesTree,
         showCollapseAll: false,
       }),
+      { dispose: () => this.scheduleHeadChangeCheck.cancel() },
     );
 
     this.disposables.push(
       vscode.window.onDidChangeActiveTextEditor(() => {
+        // Multi-root (D9): active editor's repo drives status / Tree; gutters are per-editor.
         void this.refreshStatusBar();
         void this.refreshGutters();
         void this.refreshChangesTree();
       }),
       vscode.workspace.onDidSaveTextDocument(() => {
+        // Dirty flag only — never re-run `git diff` on buffer edits (D2 / §21).
         void this.refreshStatusBar();
       }),
       vscode.window.onDidChangeVisibleTextEditors(() => {
@@ -91,7 +106,7 @@ export class ReviewManager implements vscode.Disposable {
       }),
       vscode.window.onDidChangeWindowState((state) => {
         if (state.focused) {
-          void this.onPossibleHeadChange();
+          this.scheduleHeadChangeCheck();
         }
       }),
     );
@@ -102,10 +117,13 @@ export class ReviewManager implements vscode.Disposable {
   }
 
   dispose(): void {
+    this.scheduleHeadChangeCheck.cancel();
     for (const watcher of this.headWatchers.values()) {
       watcher.dispose();
     }
     this.headWatchers.clear();
+    this.headWatcherStarting.clear();
+    this.lastSeenHead.clear();
     for (const d of this.disposables) {
       d.dispose();
     }
@@ -189,6 +207,7 @@ export class ReviewManager implements vscode.Disposable {
     this.runtime.set(gitContext.root, stopOverlay(runtime));
     this.diffPipeline.clearCache();
     this.gutters.clearAll();
+    this.lastSeenHead.delete(gitContext.root);
     void vscode.window.showInformationMessage(
       `SideDiff: stopped (base ${this.getPersisted(gitContext.root).base ?? "none"} kept).`,
     );
@@ -213,6 +232,7 @@ export class ReviewManager implements vscode.Disposable {
     this.runtime.set(gitContext.root, emptyRuntimeRepoReview());
     this.diffPipeline.clearCache();
     this.gutters.clearAll();
+    this.lastSeenHead.delete(gitContext.root);
     await this.savePersisted();
     void vscode.window.showInformationMessage("SideDiff: base cleared.");
     await this.refreshStatusBar();
@@ -346,6 +366,7 @@ export class ReviewManager implements vscode.Disposable {
     });
     await this.savePersisted();
     this.diffPipeline.clearCache();
+    this.lastSeenHead.set(gitContext.root, gitContext.head);
     this.ensureHeadWatcher(gitContext.root);
     void vscode.window.showInformationMessage(`SideDiff: reviewing against ${revision}`);
     await this.refreshStatusBar();
@@ -397,18 +418,50 @@ export class ReviewManager implements vscode.Disposable {
   }
 
   private ensureHeadWatcher(repoRoot: string): void {
-    if (this.headWatchers.has(repoRoot)) {
+    if (this.headWatchers.has(repoRoot) || this.headWatcherStarting.has(repoRoot)) {
       return;
     }
-    const pattern = new vscode.RelativePattern(vscode.Uri.file(repoRoot), ".git/HEAD");
-    const watcher = vscode.workspace.createFileSystemWatcher(pattern);
-    const onChange = (): void => {
-      void this.onPossibleHeadChange();
-    };
-    watcher.onDidChange(onChange);
-    watcher.onDidCreate(onChange);
-    watcher.onDidDelete(onChange);
-    this.headWatchers.set(repoRoot, watcher);
+    this.headWatcherStarting.add(repoRoot);
+    void this.startHeadWatcher(repoRoot);
+  }
+
+  /**
+   * Watch git-dir tip files so same-branch commits / amend / pull refresh overlay (D13).
+   * `.git/HEAD` alone is not enough — its contents stay `ref: refs/heads/…` on commit.
+   */
+  private async startHeadWatcher(repoRoot: string): Promise<void> {
+    try {
+      if (this.headWatchers.has(repoRoot)) {
+        return;
+      }
+      const gitDir = await this.git.getGitDir(repoRoot);
+      if (this.headWatchers.has(repoRoot)) {
+        return;
+      }
+
+      const gitDirUri = vscode.Uri.file(gitDir);
+      const patterns = ["HEAD", "logs/HEAD", "refs/heads/**", "packed-refs"];
+      const watchers: vscode.FileSystemWatcher[] = [];
+      const onChange = (): void => {
+        this.scheduleHeadChangeCheck();
+      };
+
+      for (const pattern of patterns) {
+        const watcher = vscode.workspace.createFileSystemWatcher(
+          new vscode.RelativePattern(gitDirUri, pattern),
+        );
+        watcher.onDidChange(onChange);
+        watcher.onDidCreate(onChange);
+        watcher.onDidDelete(onChange);
+        watchers.push(watcher);
+      }
+
+      this.headWatchers.set(repoRoot, vscode.Disposable.from(...watchers));
+    } catch {
+      // Repo may have vanished; ignore.
+    } finally {
+      this.headWatcherStarting.delete(repoRoot);
+    }
   }
 
   /** D5: overlay OFF on branch change; base kept. Returns true when it stopped. */
@@ -423,27 +476,48 @@ export class ReviewManager implements vscode.Disposable {
     this.runtime.set(repoRoot, stopOverlay(runtime));
     this.diffPipeline.clearCache();
     this.gutters.clearAll();
+    this.lastSeenHead.delete(repoRoot);
     void vscode.window.showInformationMessage(
       `SideDiff: stopped after branch change (base ${this.getPersisted(repoRoot).base ?? "none"} kept).`,
     );
     return true;
   }
 
+  /**
+   * D13: when tip advances on the same branch, refetch `base...HEAD` and refresh
+   * gutters / Tree / navigation (cache key includes HEAD). Debounced by callers.
+   */
   private async onPossibleHeadChange(): Promise<void> {
+    let tipOrSessionChanged = false;
+
     for (const [repoRoot, runtime] of this.runtime.entries()) {
       if (!runtime.overlayActive) {
         continue;
       }
       try {
         const branch = await this.git.getBranchName(repoRoot);
-        this.autoStopIfBranchChanged(repoRoot, branch);
+        if (this.autoStopIfBranchChanged(repoRoot, branch)) {
+          tipOrSessionChanged = true;
+          continue;
+        }
+        const head = await this.git.getCurrentRevision(repoRoot);
+        const previous = this.lastSeenHead.get(repoRoot);
+        if (previous !== head) {
+          this.lastSeenHead.set(repoRoot, head);
+          tipOrSessionChanged = true;
+        }
       } catch {
         // Repo may have vanished; ignore.
       }
     }
+
+    // Dirty status can change without HEAD moving.
     await this.refreshStatusBar();
-    await this.refreshGutters();
-    await this.refreshChangesTree();
+    if (tipOrSessionChanged) {
+      // New HEAD → DiffPipeline cache miss; no manual clear needed.
+      await this.refreshGutters();
+      await this.refreshChangesTree();
+    }
   }
 
   private async setReviewedState(reviewed: boolean, args?: unknown): Promise<void> {
@@ -593,12 +667,18 @@ export class ReviewManager implements vscode.Disposable {
 
   /**
    * Paint gutters on visible editors from cached `base...HEAD` (no per-keystroke Git).
+   * Active editor is decorated first (requirements §21).
    */
   async refreshGutters(): Promise<void> {
     const serial = ++this.gutterSerial;
-    const editors = vscode.window.visibleTextEditors.filter(
+    const visible = vscode.window.visibleTextEditors.filter(
       (e) => e.document.uri.scheme === "file",
     );
+    const active =
+      vscode.window.activeTextEditor?.document.uri.scheme === "file"
+        ? vscode.window.activeTextEditor
+        : undefined;
+    const editors = orderEditorsActiveFirst(visible, active);
 
     if (editors.length === 0) {
       this.gutters.clearAll();
@@ -628,6 +708,8 @@ export class ReviewManager implements vscode.Disposable {
         this.gutters.clearEditor(editor);
         continue;
       }
+
+      this.lastSeenHead.set(gitContext.root, gitContext.head);
 
       const files = await this.diffPipeline.getChangedFiles({
         repoRoot: gitContext.root,

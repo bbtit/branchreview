@@ -1,4 +1,5 @@
 import { execFile } from "node:child_process";
+import { isAbsolute, normalize, resolve } from "node:path";
 import { promisify } from "node:util";
 import { buildGitDiff } from "../diff/buildChangedFiles.ts";
 import type { ChangedFile, GitDiff } from "../diff/types.ts";
@@ -109,6 +110,15 @@ export class GitClient {
 
   async getRepositoryRoot(cwd: string): Promise<string> {
     return this.exec(cwd, ["rev-parse", "--show-toplevel"]);
+  }
+
+  /**
+   * Absolute path to the Git directory (`rev-parse --git-dir`).
+   * Resolves worktrees where `.git` is a file pointing at the real git dir.
+   */
+  async getGitDir(cwd: string): Promise<string> {
+    const dir = await this.exec(cwd, ["rev-parse", "--git-dir"]);
+    return isAbsolute(dir) ? normalize(dir) : resolve(cwd, dir);
   }
 
   /** Full SHA of HEAD. */
