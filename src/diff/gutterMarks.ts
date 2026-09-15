@@ -1,4 +1,3 @@
-import { formatHunkHoverMarkdown } from "./hunkHover.ts";
 import type { DiffHunk } from "./types.ts";
 
 export type GutterKind = "add" | "change" | "delete";
@@ -7,48 +6,59 @@ export type GutterKind = "add" | "change" | "delete";
 export type GutterMark = {
   kind: GutterKind;
   line: number;
-  /** Markdown for `DecorationOptions.hoverMessage` (full hunk). */
-  hoverMarkdown: string;
 };
 
 /**
  * Map §18 hunks to ADD / CHANGE / DELETE gutter marks (D8 for deletes).
  * Line numbers are 1-based on the new (HEAD) side.
- * Each mark carries the parent hunk's hover Markdown.
+ * Hover text is attached once per hunk (`hunkHoversFromHunks`), not per mark.
  */
 export function gutterMarksFromHunks(hunks: readonly DiffHunk[]): GutterMark[] {
   const marks: GutterMark[] = [];
 
   for (const hunk of hunks) {
-    const hoverMarkdown = formatHunkHoverMarkdown(hunk);
-    const adds = hunk.changes.filter((c) => c.type === "add");
-    const deletes = hunk.changes.filter((c) => c.type === "delete");
-
-    if (adds.length > 0 && deletes.length > 0) {
-      for (const change of adds) {
-        if (change.newLine !== undefined && change.newLine > 0) {
-          marks.push({ kind: "change", line: change.newLine, hoverMarkdown });
-        }
-      }
+    const marked = markedLinesForHunk(hunk);
+    if (!marked) {
       continue;
     }
-
-    if (adds.length > 0) {
-      for (const change of adds) {
-        if (change.newLine !== undefined && change.newLine > 0) {
-          marks.push({ kind: "add", line: change.newLine, hoverMarkdown });
-        }
-      }
-      continue;
-    }
-
-    if (deletes.length > 0) {
-      const line = deleteAnchorLine(hunk.newStart);
-      marks.push({ kind: "delete", line, hoverMarkdown });
+    for (const line of marked.lines) {
+      marks.push({ kind: marked.kind, line });
     }
   }
 
   return dedupeMarks(marks);
+}
+
+/**
+ * HEAD-side lines a hunk marks in the gutter, in ascending order.
+ * Adds mark each new line (`change` when the hunk also deletes);
+ * delete-only hunks mark the adjacent remaining line (D8).
+ */
+export function markedLinesForHunk(
+  hunk: DiffHunk,
+): { kind: GutterKind; lines: number[] } | undefined {
+  let addCount = 0;
+  let hasDelete = false;
+  const addLines: number[] = [];
+
+  for (const change of hunk.changes) {
+    if (change.type === "add") {
+      addCount += 1;
+      if (change.newLine !== undefined && change.newLine > 0) {
+        addLines.push(change.newLine);
+      }
+    } else if (change.type === "delete") {
+      hasDelete = true;
+    }
+  }
+
+  if (addCount > 0) {
+    return { kind: hasDelete ? "change" : "add", lines: addLines };
+  }
+  if (hasDelete) {
+    return { kind: "delete", lines: [deleteAnchorLine(hunk.newStart)] };
+  }
+  return undefined;
 }
 
 /**

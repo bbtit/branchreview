@@ -126,9 +126,55 @@ test("refetches when base or HEAD changes", async () => {
   });
 
   expect(diffCalls()).toBe(3);
-  expect(pipeline.getCacheKey()).toEqual({
+  expect(pipeline.getCacheKey("/repo")).toEqual({
     repoRoot: "/repo",
     base: "develop",
     head: "def456",
   });
+});
+
+test("keeps each repository's diff cached while switching between them", async () => {
+  const { git, diffCalls } = createCountingClient();
+  const pipeline = new DiffPipeline(git);
+  const first = { repoRoot: "/repo1", base: "main", head: "abc123", overlayActive: true };
+  const second = { repoRoot: "/repo2", base: "main", head: "abc123", overlayActive: true };
+
+  for (let i = 0; i < 3; i++) {
+    await pipeline.getChangedFiles(first);
+    await pipeline.getChangedFiles(second);
+  }
+
+  expect(diffCalls()).toBe(2);
+});
+
+test("stopping one repository keeps other repositories cached", async () => {
+  const { git, diffCalls } = createCountingClient();
+  const pipeline = new DiffPipeline(git);
+  const first = { repoRoot: "/repo1", base: "main", head: "abc123", overlayActive: true };
+  const second = { repoRoot: "/repo2", base: "main", head: "abc123", overlayActive: true };
+  await pipeline.getChangedFiles(first);
+  await pipeline.getChangedFiles(second);
+
+  pipeline.clearCache("/repo1");
+  await pipeline.getChangedFiles(second);
+
+  expect(pipeline.getCacheKey("/repo1")).toBeUndefined();
+  expect(pipeline.getCacheKey("/repo2")).toBeDefined();
+  expect(diffCalls()).toBe(2);
+});
+
+test("does not cache a fetch that finishes after the cache was cleared", async () => {
+  const { git } = createCountingClient();
+  const pipeline = new DiffPipeline(git);
+
+  const pending = pipeline.getChangedFiles({
+    repoRoot: "/repo",
+    base: "main",
+    head: "abc123",
+    overlayActive: true,
+  });
+  pipeline.clearCache("/repo");
+
+  expect(await pending).toEqual(stubFiles("file.ts"));
+  expect(pipeline.getCacheKey("/repo")).toBeUndefined();
 });

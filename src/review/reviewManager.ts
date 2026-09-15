@@ -3,6 +3,7 @@ import * as vscode from "vscode";
 import { GutterDecorations } from "../decorations/gutterDecorations.ts";
 import { DiffPipeline } from "../diff/diffPipeline.ts";
 import { gutterMarksFromHunks } from "../diff/gutterMarks.ts";
+import { hunkHoversFromHunks } from "../diff/hunkHover.ts";
 import type { GitClient } from "../git/gitClient.ts";
 import { repoRelativePath } from "../git/repoPath.ts";
 import { getGitContextForFile, type GitContext } from "../git/repository.ts";
@@ -205,7 +206,7 @@ export class ReviewManager implements vscode.Disposable {
     }
 
     this.runtime.set(gitContext.root, stopOverlay(runtime));
-    this.diffPipeline.clearCache();
+    this.diffPipeline.clearCache(gitContext.root);
     this.gutters.clearAll();
     this.lastSeenHead.delete(gitContext.root);
     void vscode.window.showInformationMessage(
@@ -230,7 +231,7 @@ export class ReviewManager implements vscode.Disposable {
 
     this.persisted[gitContext.root] = clearPersistedReview(previous);
     this.runtime.set(gitContext.root, emptyRuntimeRepoReview());
-    this.diffPipeline.clearCache();
+    this.diffPipeline.clearCache(gitContext.root);
     this.gutters.clearAll();
     this.lastSeenHead.delete(gitContext.root);
     await this.savePersisted();
@@ -365,7 +366,7 @@ export class ReviewManager implements vscode.Disposable {
       branchWhenStarted: gitContext.branch,
     });
     await this.savePersisted();
-    this.diffPipeline.clearCache();
+    this.diffPipeline.clearCache(gitContext.root);
     this.lastSeenHead.set(gitContext.root, gitContext.head);
     this.ensureHeadWatcher(gitContext.root);
     void vscode.window.showInformationMessage(`SideDiff: reviewing against ${revision}`);
@@ -474,7 +475,7 @@ export class ReviewManager implements vscode.Disposable {
       return false;
     }
     this.runtime.set(repoRoot, stopOverlay(runtime));
-    this.diffPipeline.clearCache();
+    this.diffPipeline.clearCache(repoRoot);
     this.gutters.clearAll();
     this.lastSeenHead.delete(repoRoot);
     void vscode.window.showInformationMessage(
@@ -734,7 +735,11 @@ export class ReviewManager implements vscode.Disposable {
         continue;
       }
 
-      this.gutters.setMarks(editor, gutterMarksFromHunks(changed.hunks));
+      this.gutters.setMarks(
+        editor,
+        gutterMarksFromHunks(changed.hunks),
+        hunkHoversFromHunks(changed.hunks),
+      );
     }
   }
 
