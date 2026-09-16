@@ -11,6 +11,7 @@ import {
   FakeTextEditor,
   fileSystemWatchers,
   resetFakeVscode,
+  saveDocument,
   shownMessages,
   switchToEditor,
   Uri,
@@ -96,7 +97,7 @@ function createRecordingGit(): {
   return { git, calls, waitForGitIdle };
 }
 
-async function startReview(root: string, fileA: string, fileB: string) {
+async function createManager(root: string, fileA: string, fileB: string) {
   const recording = createRecordingGit();
   const editorA = new FakeTextEditor(fileA);
   const editorB = new FakeTextEditor(fileB);
@@ -114,10 +115,14 @@ async function startReview(root: string, fileA: string, fileB: string) {
   };
   const manager = new ReviewManager(context as unknown as vscode.ExtensionContext, recording.git);
   cleanups.push(() => manager.dispose());
-
-  await manager.resumeReview();
-  await recording.waitForGitIdle();
   return { manager, editorA, editorB, ...recording };
+}
+
+async function startReview(root: string, fileA: string, fileB: string) {
+  const session = await createManager(root, fileA, fileB);
+  await session.manager.resumeReview();
+  await session.waitForGitIdle();
+  return session;
 }
 
 function markedLines(editor: FakeTextEditor, kind: "add" | "change" | "delete"): number[] {
@@ -126,6 +131,11 @@ function markedLines(editor: FakeTextEditor, kind: "add" | "change" | "delete"):
   );
   const ranges = (type ? editor.decorations.get(type.key) : undefined) ?? [];
   return (ranges as Range[]).map((range) => range.start.line + 1);
+}
+
+/** `git --no-optional-locks status --porcelain` — the working-tree dirty check. */
+function isDirtyCheck(args: string[]): boolean {
+  return args.includes("status");
 }
 
 function fireGitDirWatchers(): void {
@@ -151,8 +161,8 @@ test(
     }
 
     const tabSwitchCalls = calls.slice(warmCalls);
-    expect(tabSwitchCalls.filter((args) => args[0] !== "status")).toEqual([]);
-    expect(tabSwitchCalls.filter((args) => args[0] === "status")).toHaveLength(6);
+    expect(tabSwitchCalls.filter((args) => !isDirtyCheck(args))).toEqual([]);
+    expect(tabSwitchCalls.filter(isDirtyCheck)).toHaveLength(6);
     expect(markedLines(editorB, "add")).toEqual([11]);
   },
   TIMEOUT_MS,
@@ -195,6 +205,46 @@ test(
     expect(shownMessages.some((message) => message.includes("stopped after branch change"))).toBe(
       true,
     );
+  },
+  TIMEOUT_MS,
+);
+
+test(
+  "tab switches run no Git at all while the review is off",
+  async () => {
+    const { root, fileA, fileB } = await createReviewRepo();
+    const { editorA, editorB, calls, waitForGitIdle } = await createManager(root, fileA, fileB);
+    await waitForGitIdle();
+
+    const warmCalls = calls.length;
+    switchToEditor(editorB, [editorA, editorB]);
+    await waitForGitIdle();
+    switchToEditor(editorA, [editorA, editorB]);
+    await waitForGitIdle();
+
+    expect(calls.slice(warmCalls)).toEqual([]);
+  },
+  TIMEOUT_MS,
+);
+
+test(
+  "a burst of saves checks the working tree once",
+  async () => {
+    const { root, fileA, fileB } = await createReviewRepo();
+    const { calls, waitForGitIdle } = await startReview(root, fileA, fileB);
+    const warmCalls = calls.length;
+
+    await writeFile(fileA, "locally edited\n", "utf8");
+    // Spread out like Save All / autosave: undebounced, every save would check Git.
+    for (let i = 0; i < 5; i++) {
+      saveDocument();
+      await sleep(50);
+    }
+    await waitForGitIdle();
+
+    const savedCalls = calls.slice(warmCalls);
+    expect(savedCalls.filter((args) => args.includes("status"))).toHaveLength(1);
+    expect(savedCalls.filter((args) => args[0] === "diff")).toEqual([]);
   },
   TIMEOUT_MS,
 );

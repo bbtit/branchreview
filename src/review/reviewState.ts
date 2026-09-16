@@ -167,7 +167,8 @@ export function formatStatusBarText(options: {
   dirty: boolean;
 }): string {
   if (!options.overlayActive) {
-    return options.dirty ? "SideDiff: off · local changes" : "SideDiff: off";
+    // Dirtiness is not tracked while the overlay is off (no `git status` runs).
+    return "SideDiff: off";
   }
   const base = options.base ?? "(no base)";
   return options.dirty ? `SideDiff: ${base} · local changes` : `SideDiff: ${base}`;

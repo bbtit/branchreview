@@ -76,12 +76,12 @@ Grilling で確定した判断。要件の正本は [`requirements.md`](./requir
 
 ## UI chrome
 
-| ID  | Decision                                                                                                                                                   |
-| --- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| D11 | status bar を出す。例: `SideDiff: origin/main` / `SideDiff: off` / `… local changes`。ON/OFF・base・dirty が一目で分かるようにする                         |
-| D16 | 表示名 `SideDiff`、パッケージ ID `sidediff`                                                                                                                |
-| D20 | パッケージマネージャは **pnpm**（npm / yarn は使わない）。lockfile は `pnpm-lock.yaml` をコミット。VS Code 拡張で必要なら `.npmrc` で hoist を調整してよい |
-| D21 | 開発ツールチェーンは **VoidZero / Vite+**（`vp` CLI）を正とする。ESLint / Prettier / Jest / webpack は使わない                                             |
+| ID  | Decision                                                                                                                                                                                                         |
+| --- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| D11 | status bar を出す。例: `SideDiff: origin/main` / `SideDiff: off` / `… local changes`。ON/OFF・base・dirty が一目で分かるようにする。dirty は overlay ON のときだけ判定する（OFF 中は `git status` を実行しない） |
+| D16 | 表示名 `SideDiff`、パッケージ ID `sidediff`                                                                                                                                                                      |
+| D20 | パッケージマネージャは **pnpm**（npm / yarn は使わない）。lockfile は `pnpm-lock.yaml` をコミット。VS Code 拡張で必要なら `.npmrc` で hoist を調整してよい                                                       |
+| D21 | 開発ツールチェーンは **VoidZero / Vite+**（`vp` CLI）を正とする。ESLint / Prettier / Jest / webpack は使わない                                                                                                   |
 
 ### Tooling (D21) — 詳細
 

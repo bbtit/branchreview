@@ -197,7 +197,8 @@ export class GitClient {
    * (untracked files count as dirty).
    */
   async isWorkingTreeDirty(cwd: string): Promise<boolean> {
-    const stdout = await this.exec(cwd, ["status", "--porcelain"]);
+    // `--no-optional-locks`: never take `index.lock` behind the user's own Git commands.
+    const stdout = await this.exec(cwd, ["--no-optional-locks", "status", "--porcelain"]);
     return stdout.length > 0;
   }
 }

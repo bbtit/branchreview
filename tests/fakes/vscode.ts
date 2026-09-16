@@ -268,6 +268,11 @@ export const workspace = {
   openTextDocument: async (uri: Uri): Promise<{ uri: Uri }> => ({ uri }),
 };
 
+/** A document save, which VS Code reports after the file has been written. */
+export function saveDocument(): void {
+  documentSaved.fire({});
+}
+
 /** A tab switch: VS Code fires visible- and active-editor events back to back. */
 export function switchToEditor(active: FakeTextEditor, visible: FakeTextEditor[]): void {
   window.activeTextEditor = active;

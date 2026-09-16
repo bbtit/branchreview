@@ -116,6 +116,12 @@ test("status bar mentions local changes while overlay is on", () => {
   );
 });
 
+test("status bar stays plain off because dirtiness is not tracked then", () => {
+  expect(formatStatusBarText({ overlayActive: false, base: "origin/main", dirty: true })).toBe(
+    "SideDiff: off",
+  );
+});
+
 test("tooltip remembers base while overlay is off so Resume is discoverable", () => {
   const tip = formatStatusBarTooltip({
     overlayActive: false,

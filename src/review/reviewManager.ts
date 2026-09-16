@@ -8,6 +8,7 @@ import type { GitClient } from "../git/gitClient.ts";
 import { GitContextCache } from "../git/gitContextCache.ts";
 import { repoRelativePath } from "../git/repoPath.ts";
 import type { GitContext } from "../git/repository.ts";
+import { WorkingTreeStatus } from "../git/workingTreeStatus.ts";
 import {
   changeTargetsFromFiles,
   findNextChangeTarget,
@@ -46,6 +47,8 @@ const ENTER_REVISION_LABEL = "$(edit) Enter revision…";
 const HEAD_CHANGE_DEBOUNCE_MS = 200;
 /** Active + visible editor events fire together on a tab switch; refresh once. */
 const EDITOR_CHANGE_DEBOUNCE_MS = 10;
+/** Saves arrive in bursts (format-on-save, Save All); check the working tree once. */
+const SAVE_DEBOUNCE_MS = 200;
 
 /**
  * Owns SideDiff review ON/OFF, base persistence, status bar, branch watch,
@@ -56,6 +59,7 @@ export class ReviewManager implements vscode.Disposable {
   private readonly disposables: vscode.Disposable[] = [];
   private readonly diffPipeline: DiffPipeline;
   private readonly gitContexts: GitContextCache;
+  private readonly workingTree: WorkingTreeStatus;
   private readonly gutters: GutterDecorations;
   private readonly changesTree: ChangesTreeProvider;
   private persisted: PersistedReviewMap;
@@ -67,6 +71,7 @@ export class ReviewManager implements vscode.Disposable {
   private readonly lastSeenHead = new Map<string, string>();
   private readonly scheduleHeadChangeCheck: (() => void) & { cancel(): void };
   private readonly scheduleEditorRefresh: (() => void) & { cancel(): void };
+  private readonly scheduleDirtyCheck: (() => void) & { cancel(): void };
   /** Status bar / Tree follow the active editor only; gutters follow every visible one. */
   private activeEditorChanged = false;
   private refreshSerial = 0;
@@ -80,6 +85,7 @@ export class ReviewManager implements vscode.Disposable {
     this.persisted = loadPersistedMap(context.workspaceState.get(WORKSPACE_STATE_KEY));
     this.diffPipeline = new DiffPipeline(git);
     this.gitContexts = new GitContextCache(git);
+    this.workingTree = new WorkingTreeStatus(git);
     this.gutters = new GutterDecorations(context.extensionUri);
     this.changesTree = new ChangesTreeProvider();
     this.statusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
@@ -97,6 +103,9 @@ export class ReviewManager implements vscode.Disposable {
       }
       void this.refreshGutters();
     }, EDITOR_CHANGE_DEBOUNCE_MS);
+    this.scheduleDirtyCheck = debounce(() => {
+      void this.refreshStatusBar();
+    }, SAVE_DEBOUNCE_MS);
     this.disposables.push(
       this.statusBar,
       this.gutters,
@@ -107,6 +116,7 @@ export class ReviewManager implements vscode.Disposable {
       }),
       { dispose: () => this.scheduleHeadChangeCheck.cancel() },
       { dispose: () => this.scheduleEditorRefresh.cancel() },
+      { dispose: () => this.scheduleDirtyCheck.cancel() },
     );
 
     this.disposables.push(
@@ -117,7 +127,7 @@ export class ReviewManager implements vscode.Disposable {
       }),
       vscode.workspace.onDidSaveTextDocument(() => {
         // Dirty flag only — never re-run `git diff` on buffer edits (D2 / §21).
-        void this.refreshStatusBar();
+        this.scheduleDirtyCheck();
       }),
       vscode.window.onDidChangeVisibleTextEditors(() => {
         // Fires alongside active-editor changes on a tab switch; coalesced into one refresh.
@@ -138,6 +148,7 @@ export class ReviewManager implements vscode.Disposable {
   dispose(): void {
     this.scheduleHeadChangeCheck.cancel();
     this.scheduleEditorRefresh.cancel();
+    this.scheduleDirtyCheck.cancel();
     for (const watcher of this.headWatchers.values()) {
       watcher.dispose();
     }
@@ -847,21 +858,24 @@ export class ReviewManager implements vscode.Disposable {
 
     const latestRuntime = this.getRuntime(gitContext.root);
     const persisted = this.getPersisted(gitContext.root);
+    // The dirty hint only appears during a review, so skip `git status` while off (D11).
     let dirty = false;
-    try {
-      dirty = await this.git.isWorkingTreeDirty(gitContext.root);
-    } catch {
-      dirty = false;
-    }
+    if (latestRuntime.overlayActive) {
+      try {
+        dirty = await this.workingTree.isDirty(gitContext.root);
+      } catch {
+        dirty = false;
+      }
 
-    if (serial !== this.refreshSerial) {
-      return;
+      if (serial !== this.refreshSerial) {
+        return;
+      }
     }
 
     this.statusBar.text = formatStatusBarText({
       overlayActive: latestRuntime.overlayActive,
       base: persisted.base,
-      dirty: latestRuntime.overlayActive && dirty,
+      dirty,
     });
     this.statusBar.tooltip = formatStatusBarTooltip({
       overlayActive: latestRuntime.overlayActive,
