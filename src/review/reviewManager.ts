@@ -5,8 +5,9 @@ import { DiffPipeline } from "../diff/diffPipeline.ts";
 import { gutterMarksFromHunks } from "../diff/gutterMarks.ts";
 import { hunkHoversFromHunks } from "../diff/hunkHover.ts";
 import type { GitClient } from "../git/gitClient.ts";
+import { GitContextCache } from "../git/gitContextCache.ts";
 import { repoRelativePath } from "../git/repoPath.ts";
-import { getGitContextForFile, type GitContext } from "../git/repository.ts";
+import type { GitContext } from "../git/repository.ts";
 import {
   changeTargetsFromFiles,
   findNextChangeTarget,
@@ -43,6 +44,8 @@ import {
 const ENTER_REVISION_LABEL = "$(edit) Enter revision…";
 /** Quiet window before reacting to Git tip / ref file events (MVP-10). */
 const HEAD_CHANGE_DEBOUNCE_MS = 200;
+/** Active + visible editor events fire together on a tab switch; refresh once. */
+const EDITOR_CHANGE_DEBOUNCE_MS = 10;
 
 /**
  * Owns SideDiff review ON/OFF, base persistence, status bar, branch watch,
@@ -52,6 +55,7 @@ export class ReviewManager implements vscode.Disposable {
   private readonly statusBar: vscode.StatusBarItem;
   private readonly disposables: vscode.Disposable[] = [];
   private readonly diffPipeline: DiffPipeline;
+  private readonly gitContexts: GitContextCache;
   private readonly gutters: GutterDecorations;
   private readonly changesTree: ChangesTreeProvider;
   private persisted: PersistedReviewMap;
@@ -62,6 +66,9 @@ export class ReviewManager implements vscode.Disposable {
   /** Last observed HEAD SHA per repo — skip gutter/Tree refetch when unchanged. */
   private readonly lastSeenHead = new Map<string, string>();
   private readonly scheduleHeadChangeCheck: (() => void) & { cancel(): void };
+  private readonly scheduleEditorRefresh: (() => void) & { cancel(): void };
+  /** Status bar / Tree follow the active editor only; gutters follow every visible one. */
+  private activeEditorChanged = false;
   private refreshSerial = 0;
   private gutterSerial = 0;
   private treeSerial = 0;
@@ -72,6 +79,7 @@ export class ReviewManager implements vscode.Disposable {
   ) {
     this.persisted = loadPersistedMap(context.workspaceState.get(WORKSPACE_STATE_KEY));
     this.diffPipeline = new DiffPipeline(git);
+    this.gitContexts = new GitContextCache(git);
     this.gutters = new GutterDecorations(context.extensionUri);
     this.changesTree = new ChangesTreeProvider();
     this.statusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
@@ -80,6 +88,15 @@ export class ReviewManager implements vscode.Disposable {
     this.scheduleHeadChangeCheck = debounce(() => {
       void this.onPossibleHeadChange();
     }, HEAD_CHANGE_DEBOUNCE_MS);
+    this.scheduleEditorRefresh = debounce(() => {
+      const activeChanged = this.activeEditorChanged;
+      this.activeEditorChanged = false;
+      if (activeChanged) {
+        void this.refreshStatusBar();
+        void this.refreshChangesTree();
+      }
+      void this.refreshGutters();
+    }, EDITOR_CHANGE_DEBOUNCE_MS);
     this.disposables.push(
       this.statusBar,
       this.gutters,
@@ -89,21 +106,22 @@ export class ReviewManager implements vscode.Disposable {
         showCollapseAll: false,
       }),
       { dispose: () => this.scheduleHeadChangeCheck.cancel() },
+      { dispose: () => this.scheduleEditorRefresh.cancel() },
     );
 
     this.disposables.push(
       vscode.window.onDidChangeActiveTextEditor(() => {
         // Multi-root (D9): active editor's repo drives status / Tree; gutters are per-editor.
-        void this.refreshStatusBar();
-        void this.refreshGutters();
-        void this.refreshChangesTree();
+        this.activeEditorChanged = true;
+        this.scheduleEditorRefresh();
       }),
       vscode.workspace.onDidSaveTextDocument(() => {
         // Dirty flag only — never re-run `git diff` on buffer edits (D2 / §21).
         void this.refreshStatusBar();
       }),
       vscode.window.onDidChangeVisibleTextEditors(() => {
-        void this.refreshGutters();
+        // Fires alongside active-editor changes on a tab switch; coalesced into one refresh.
+        this.scheduleEditorRefresh();
       }),
       vscode.window.onDidChangeWindowState((state) => {
         if (state.focused) {
@@ -119,6 +137,7 @@ export class ReviewManager implements vscode.Disposable {
 
   dispose(): void {
     this.scheduleHeadChangeCheck.cancel();
+    this.scheduleEditorRefresh.cancel();
     for (const watcher of this.headWatchers.values()) {
       watcher.dispose();
     }
@@ -376,7 +395,8 @@ export class ReviewManager implements vscode.Disposable {
   }
 
   private async requireReviewableContext(action: string): Promise<GitContext | undefined> {
-    const gitContext = await this.resolveActiveGitContext();
+    // Starting a review records branch and HEAD, so read Git instead of the cache.
+    const gitContext = await this.resolveActiveGitContext({ fresh: true });
     if (!gitContext) {
       void vscode.window.showWarningMessage(
         `SideDiff: open a file inside a Git repository to ${action}.`,
@@ -393,17 +413,19 @@ export class ReviewManager implements vscode.Disposable {
     return gitContext;
   }
 
-  private async resolveActiveGitContext(): Promise<GitContext | undefined> {
+  private async resolveActiveGitContext(
+    options: { fresh?: boolean } = {},
+  ): Promise<GitContext | undefined> {
     const editor = vscode.window.activeTextEditor;
     if (editor && editor.document.uri.scheme === "file") {
-      return getGitContextForFile(this.git, editor.document.uri.fsPath);
+      return this.gitContexts.getContextForPath(editor.document.uri.fsPath, options);
     }
 
     const folder = vscode.workspace.workspaceFolders?.[0];
     if (!folder) {
       return undefined;
     }
-    return getGitContextForFile(this.git, folder.uri.fsPath);
+    return this.gitContexts.getContextForPath(folder.uri.fsPath, options);
   }
 
   private getPersisted(repoRoot: string): PersistedRepoReview {
@@ -458,6 +480,8 @@ export class ReviewManager implements vscode.Disposable {
       }
 
       this.headWatchers.set(repoRoot, vscode.Disposable.from(...watchers));
+      // A tip move between the last context read and watcher start would go unnoticed.
+      this.scheduleHeadChangeCheck();
     } catch {
       // Repo may have vanished; ignore.
     } finally {
@@ -489,6 +513,8 @@ export class ReviewManager implements vscode.Disposable {
    * gutters / Tree / navigation (cache key includes HEAD). Debounced by callers.
    */
   private async onPossibleHeadChange(): Promise<void> {
+    // Watcher / focus signal: cached HEAD and branch may be stale (D5 / D13).
+    this.gitContexts.invalidateRepositoryHeads();
     let tipOrSessionChanged = false;
 
     for (const [repoRoot, runtime] of this.runtime.entries()) {
@@ -496,15 +522,17 @@ export class ReviewManager implements vscode.Disposable {
         continue;
       }
       try {
-        const branch = await this.git.getBranchName(repoRoot);
-        if (this.autoStopIfBranchChanged(repoRoot, branch)) {
+        const gitContext = await this.gitContexts.getContextForPath(repoRoot);
+        if (!gitContext || gitContext.root !== repoRoot) {
+          // Repo may have vanished; ignore.
+          continue;
+        }
+        if (this.autoStopIfBranchChanged(repoRoot, gitContext.branch)) {
           tipOrSessionChanged = true;
           continue;
         }
-        const head = await this.git.getCurrentRevision(repoRoot);
-        const previous = this.lastSeenHead.get(repoRoot);
-        if (previous !== head) {
-          this.lastSeenHead.set(repoRoot, head);
+        if (this.lastSeenHead.get(repoRoot) !== gitContext.head) {
+          this.lastSeenHead.set(repoRoot, gitContext.head);
           tipOrSessionChanged = true;
         }
       } catch {
@@ -691,7 +719,7 @@ export class ReviewManager implements vscode.Disposable {
         return;
       }
 
-      const gitContext = await getGitContextForFile(this.git, editor.document.uri.fsPath);
+      const gitContext = await this.gitContexts.getContextForPath(editor.document.uri.fsPath);
       if (serial !== this.gutterSerial) {
         return;
       }

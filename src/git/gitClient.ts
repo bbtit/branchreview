@@ -13,6 +13,13 @@ export type GitExecResult = {
 
 export type GitRunner = (cwd: string, args: readonly string[]) => Promise<GitExecResult>;
 
+/** Repository root with its HEAD SHA and branch (`null` when detached). */
+export type RepositoryHead = {
+  root: string;
+  head: string;
+  branch: string | null;
+};
+
 export class GitError extends Error {
   readonly args: readonly string[];
   readonly cwd: string;
@@ -136,6 +143,19 @@ export class GitClient {
       return null;
     }
     return name;
+  }
+
+  /**
+   * Root, HEAD SHA, and branch of the repository owning `cwd` in one `rev-parse`,
+   * so editor refreshes spawn a single process (requirements §21).
+   */
+  async getRepositoryHead(cwd: string): Promise<RepositoryHead> {
+    const args = ["rev-parse", "--show-toplevel", "HEAD", "--abbrev-ref", "HEAD"];
+    const [root, head, abbrevRef] = (await this.exec(cwd, args)).split(/\r?\n/);
+    if (!root || !head || !abbrevRef) {
+      throw new GitError("unexpected git rev-parse output", { args, cwd, stderr: "", code: null });
+    }
+    return { root, head, branch: abbrevRef === "HEAD" ? null : abbrevRef };
   }
 
   async isDetachedHead(cwd: string): Promise<boolean> {

@@ -1,3 +1,4 @@
+import { fileURLToPath } from "node:url";
 import { defineConfig } from "vite-plus";
 
 export default defineConfig({
@@ -16,6 +17,10 @@ export default defineConfig({
   },
   test: {
     include: ["tests/**/*.test.ts"],
+    // `vscode` only exists inside the extension host; ReviewManager tests use a fake.
+    alias: {
+      vscode: fileURLToPath(new URL("./tests/fakes/vscode.ts", import.meta.url)),
+    },
   },
   lint: {
     options: {

@@ -1,6 +1,6 @@
 import { stat } from "node:fs/promises";
 import { dirname } from "node:path";
-import type { GitClient } from "./gitClient.ts";
+import type { GitClient, RepositoryHead } from "./gitClient.ts";
 import { GitError } from "./gitClient.ts";
 
 /**
@@ -23,7 +23,8 @@ export type GitContext = {
   reviewable: boolean;
 };
 
-async function workingDirectoryFor(path: string): Promise<string> {
+/** Directory Git should run in for `path` (the path itself when it is a directory). */
+export async function workingDirectoryFor(path: string): Promise<string> {
   try {
     const info = await stat(path);
     return info.isDirectory() ? path : dirname(path);
@@ -42,23 +43,25 @@ export async function getGitContextForFile(
 ): Promise<GitContext | undefined> {
   const cwd = await workingDirectoryFor(path);
   try {
-    const root = await client.getRepositoryRoot(cwd);
-    const head = await client.getCurrentRevision(root);
-    const branch = await client.getBranchName(root);
-    const detached = branch === null;
-    return {
-      root,
-      head,
-      branch,
-      detached,
-      reviewable: !detached,
-    };
+    return gitContextFromRepositoryHead(await client.getRepositoryHead(cwd));
   } catch (error) {
     if (error instanceof GitError) {
       return undefined;
     }
     throw error;
   }
+}
+
+/** Add detached / reviewable flags to a repository's root, HEAD, and branch (D15). */
+export function gitContextFromRepositoryHead(repository: RepositoryHead): GitContext {
+  const detached = repository.branch === null;
+  return {
+    root: repository.root,
+    head: repository.head,
+    branch: repository.branch,
+    detached,
+    reviewable: !detached,
+  };
 }
 
 export function formatGitContext(context: GitContext): string {
