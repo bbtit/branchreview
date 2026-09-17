@@ -4,7 +4,8 @@ import { GutterDecorations } from "../decorations/gutterDecorations.ts";
 import { DiffPipeline } from "../diff/diffPipeline.ts";
 import { gutterMarksFromHunks } from "../diff/gutterMarks.ts";
 import { hunkHoversFromHunks } from "../diff/hunkHover.ts";
-import type { GitClient } from "../git/gitClient.ts";
+import type { ChangedFile } from "../diff/types.ts";
+import { GitError, GitOutputTooLargeError, type GitClient } from "../git/gitClient.ts";
 import { GitContextCache } from "../git/gitContextCache.ts";
 import { repoRelativePath } from "../git/repoPath.ts";
 import type { GitContext } from "../git/repository.ts";
@@ -69,6 +70,8 @@ export class ReviewManager implements vscode.Disposable {
   private readonly headWatcherStarting = new Set<string>();
   /** Last observed HEAD SHA per repo — skip gutter/Tree refetch when unchanged. */
   private readonly lastSeenHead = new Map<string, string>();
+  /** Diff failures already shown, so a refresh loop cannot repeat the message. */
+  private readonly reportedDiffErrors = new Set<string>();
   private readonly scheduleHeadChangeCheck: (() => void) & { cancel(): void };
   private readonly scheduleEditorRefresh: (() => void) & { cancel(): void };
   private readonly scheduleDirtyCheck: (() => void) & { cancel(): void };
@@ -608,18 +611,13 @@ export class ReviewManager implements vscode.Disposable {
     }
     const { gitContext, base } = session;
 
-    const files = await this.diffPipeline.getChangedFiles({
-      repoRoot: gitContext.root,
-      base,
-      head: gitContext.head,
-      overlayActive: true,
-    });
-    if (!files) {
-      void vscode.window.showInformationMessage("SideDiff: no changes to navigate.");
+    const { files, error } = await this.loadChangedFiles(gitContext.root, base, gitContext.head);
+    if (error) {
+      // loadChangedFiles already told the user why.
       return;
     }
 
-    const targets = changeTargetsFromFiles(files);
+    const targets = changeTargetsFromFiles(files ?? []);
     if (targets.length === 0) {
       void vscode.window.showInformationMessage("SideDiff: no changes to navigate.");
       return;
@@ -751,18 +749,17 @@ export class ReviewManager implements vscode.Disposable {
 
       this.lastSeenHead.set(gitContext.root, gitContext.head);
 
-      const files = await this.diffPipeline.getChangedFiles({
-        repoRoot: gitContext.root,
-        base: persisted.base,
-        head: gitContext.head,
-        overlayActive: true,
-      });
+      const { files, error } = await this.loadChangedFiles(
+        gitContext.root,
+        persisted.base,
+        gitContext.head,
+      );
 
       if (serial !== this.gutterSerial) {
         return;
       }
 
-      if (!files) {
+      if (error || !files) {
         this.gutters.clearEditor(editor);
         continue;
       }
@@ -814,12 +811,11 @@ export class ReviewManager implements vscode.Disposable {
       return;
     }
 
-    const files = await this.diffPipeline.getChangedFiles({
-      repoRoot: gitContext.root,
-      base: persisted.base,
-      head: gitContext.head,
-      overlayActive: true,
-    });
+    const { files, error } = await this.loadChangedFiles(
+      gitContext.root,
+      persisted.base,
+      gitContext.head,
+    );
 
     if (serial !== this.treeSerial) {
       return;
@@ -830,7 +826,37 @@ export class ReviewManager implements vscode.Disposable {
       base: persisted.base,
       files: files ?? [],
       reviewedPaths: getReviewedPaths(persisted, persisted.base, gitContext.branch),
+      error,
     });
+  }
+
+  /**
+   * Cached `base...HEAD`, or a short reason when Git could not produce it (MVP-10c).
+   * A failure is shown once per (repo, base, HEAD) so refreshes cannot spam the user.
+   */
+  private async loadChangedFiles(
+    repoRoot: string,
+    base: string,
+    head: string,
+  ): Promise<{ files?: ChangedFile[]; error?: string }> {
+    const key = `${repoRoot}\0${base}\0${head}`;
+    try {
+      const files = await this.diffPipeline.getChangedFiles({
+        repoRoot,
+        base,
+        head,
+        overlayActive: true,
+      });
+      this.reportedDiffErrors.delete(key);
+      return { files: files ?? [] };
+    } catch (error) {
+      const reason = diffFailureReason(error);
+      if (!this.reportedDiffErrors.has(key)) {
+        this.reportedDiffErrors.add(key);
+        void vscode.window.showErrorMessage(`SideDiff: could not load ${base}...HEAD — ${reason}`);
+      }
+      return { error: reason };
+    }
   }
 
   async refreshStatusBar(): Promise<void> {
@@ -885,6 +911,19 @@ export class ReviewManager implements vscode.Disposable {
       repoRoot: gitContext.root,
     });
   }
+}
+
+/** Short, user-facing reason a `base...HEAD` load failed. */
+function diffFailureReason(error: unknown): string {
+  if (error instanceof GitOutputTooLargeError) {
+    const limitMb = Math.round(error.limitBytes / (1024 * 1024));
+    return `the diff is larger than ${limitMb} MB`;
+  }
+  if (error instanceof GitError) {
+    const firstStderrLine = error.stderr.trim().split(/\r?\n/)[0];
+    return firstStderrLine && firstStderrLine.length > 0 ? firstStderrLine : error.message;
+  }
+  return error instanceof Error ? error.message : String(error);
 }
 
 /** Accept tree row, MarkTreeFileArgs, or undefined (fall back to active editor). */

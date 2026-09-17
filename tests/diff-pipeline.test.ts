@@ -33,13 +33,13 @@ function createCountingClient(): { git: GitClient; diffCalls: () => number } {
     if (args[0] === "rev-parse" && args[1] === "HEAD") {
       return { stdout: "abc123\n", stderr: "" };
     }
-    if (args[0] === "diff" && args.includes("--name-status")) {
+    if (args[0] === "diff") {
+      // One run carries the raw status lines and the patch (MVP-10c).
       calls += 1;
-      return { stdout: "M\tfile.ts\n", stderr: "" };
-    }
-    if (args[0] === "diff" && args.includes("--unified=0")) {
       return {
-        stdout: `diff --git a/file.ts b/file.ts
+        stdout: `:100644 100644 1111111 2222222 M\tfile.ts
+
+diff --git a/file.ts b/file.ts
 --- a/file.ts
 +++ b/file.ts
 @@ -0,0 +1 @@

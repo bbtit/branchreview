@@ -56,6 +56,38 @@ test("compares base...HEAD and ignores uncommitted working tree edits", async ()
   expect(files.some((f) => f.path === "untracked.ts")).toBe(false);
 });
 
+test("classifies added, deleted, renamed, and binary files from one diff run", async () => {
+  const root = await createTempDir("sidediff-statuses-");
+  await gitInit(root, "main");
+  await writeFile(join(root, "mod.txt"), "l1\nl2\nl3\n", "utf8");
+  await writeFile(join(root, "del.txt"), "old\n", "utf8");
+  await writeFile(join(root, "ren-old.txt"), "keep\n", "utf8");
+  await writeFile(join(root, "logo.bin"), Buffer.from([0, 1, 2, 3]));
+  await git.exec(root, ["add", "."]);
+  await git.exec(root, ["commit", "-m", "base"]);
+
+  await git.exec(root, ["checkout", "-b", "feature"]);
+  await writeFile(join(root, "mod.txt"), "l1\nCHANGED\nl3\n", "utf8");
+  await rm(join(root, "del.txt"));
+  await git.exec(root, ["mv", "ren-old.txt", "ren-new.txt"]);
+  await writeFile(join(root, "added.txt"), "new\n", "utf8");
+  await writeFile(join(root, "logo.bin"), Buffer.from([9, 9, 9, 9, 9]));
+  await git.exec(root, ["add", "-A"]);
+  await git.exec(root, ["commit", "-m", "feature"]);
+
+  const files = await git.getChangedFiles(root, "main", "HEAD");
+  const byPath = new Map(files.map((file) => [file.path, file]));
+
+  expect(byPath.get("added.txt")).toMatchObject({ status: "added", additions: 1 });
+  expect(byPath.get("del.txt")).toMatchObject({ status: "deleted", deletions: 1 });
+  expect(byPath.get("mod.txt")).toMatchObject({ status: "modified", additions: 1, deletions: 1 });
+  expect(byPath.get("ren-new.txt")).toMatchObject({
+    status: "renamed",
+    oldPath: "ren-old.txt",
+  });
+  expect(byPath.get("logo.bin")).toMatchObject({ status: "modified", binary: true, hunks: [] });
+});
+
 test("passes a three-dot revision range to git diff", async () => {
   const calls: string[][] = [];
   const real = new GitClient();
@@ -78,7 +110,7 @@ test("passes a three-dot revision range to git diff", async () => {
   await client.getChangedFiles(root, "main", "HEAD");
 
   const diffCalls = calls.filter((args) => args[0] === "diff");
-  expect(diffCalls.length).toBe(2);
-  expect(diffCalls.every((args) => args.includes("main...HEAD"))).toBe(true);
+  // One process carries both the status lines and the patch (MVP-10c).
+  expect(diffCalls).toEqual([["diff", "--unified=0", "--raw", "main...HEAD"]]);
   expect(diffCalls.some((args) => args.includes("main..HEAD"))).toBe(false);
 });

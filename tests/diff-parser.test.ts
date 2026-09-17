@@ -1,6 +1,6 @@
 import { expect, test } from "vite-plus/test";
-import { buildChangedFiles } from "../src/diff/buildChangedFiles.ts";
-import { parseNameStatus } from "../src/diff/parseNameStatus.ts";
+import { buildChangedFiles, splitRawStatusAndPatch } from "../src/diff/buildChangedFiles.ts";
+import { parseDiffStatus } from "../src/diff/parseDiffStatus.ts";
 import { parseUnifiedDiff } from "../src/diff/parseUnifiedDiff.ts";
 
 const ADD_DIFF = `diff --git a/src/new.ts b/src/new.ts
@@ -73,9 +73,9 @@ test("parses a delete hunk with old-side line numbers only", () => {
   ]);
 });
 
-test("parses name-status including renames", () => {
+test("parses name-status lines including renames", () => {
   expect(
-    parseNameStatus(`A\tsrc/new.ts
+    parseDiffStatus(`A\tsrc/new.ts
 M\tsrc/edit.ts
 D\tsrc/gone.ts
 R100\told.ts\tnew.ts
@@ -88,7 +88,39 @@ R100\told.ts\tnew.ts
   ]);
 });
 
-test("merges name-status and unified diff into ChangedFile models", () => {
+test("parses raw status lines that carry mode and blob fields", () => {
+  expect(
+    parseDiffStatus(`:000000 100644 0000000 3e75765 A\tadd.txt
+:100644 100644 0f49c4a a7e7e01 M\tbin.dat
+:100644 000000 3367afd 0000000 D\tdel.txt
+:100644 100644 0ec1772 0ec1772 R100\tren-old.txt\tren-new.txt
+`),
+  ).toEqual([
+    { status: "added", path: "add.txt" },
+    { status: "modified", path: "bin.dat" },
+    { status: "deleted", path: "del.txt" },
+    { status: "renamed", oldPath: "ren-old.txt", path: "ren-new.txt" },
+  ]);
+});
+
+test("splits one diff run into status lines and patch", () => {
+  const combined = `:100644 100644 f0f2307 7c30781 M\tsrc/edit.ts
+
+${MODIFY_DIFF}`;
+  const { status, patch } = splitRawStatusAndPatch(combined);
+
+  expect(parseDiffStatus(status)).toEqual([{ status: "modified", path: "src/edit.ts" }]);
+  expect(patch).toBe(MODIFY_DIFF);
+  expect(parseUnifiedDiff(patch).hunksByPath.get("src/edit.ts")).toHaveLength(2);
+});
+
+test("treats output without a patch as status lines only", () => {
+  const { status, patch } = splitRawStatusAndPatch(":100644 000000 3367afd 0000000 D\tgone.ts\n");
+  expect(parseDiffStatus(status)).toEqual([{ status: "deleted", path: "gone.ts" }]);
+  expect(patch).toBe("");
+});
+
+test("merges status lines and unified diff into ChangedFile models", () => {
   const files = buildChangedFiles(
     `A\tsrc/new.ts
 M\tsrc/edit.ts

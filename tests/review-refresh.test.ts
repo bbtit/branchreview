@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type * as vscode from "vscode";
 import { afterEach, expect, test } from "vite-plus/test";
-import { GitClient } from "../src/git/gitClient.ts";
+import { GitClient, GitOutputTooLargeError } from "../src/git/gitClient.ts";
 import { ReviewManager } from "../src/review/reviewManager.ts";
 import { WORKSPACE_STATE_KEY } from "../src/review/reviewState.ts";
 import {
@@ -66,7 +66,7 @@ async function commitAll(root: string, message: string): Promise<void> {
 }
 
 /** Git client that records every run and can wait until Git has been quiet. */
-function createRecordingGit(): {
+function createRecordingGit(diffError?: () => Error): {
   git: GitClient;
   calls: string[][];
   waitForGitIdle: () => Promise<void>;
@@ -79,6 +79,9 @@ function createRecordingGit(): {
     pending += 1;
     lastActivity = Date.now();
     try {
+      if (diffError && args[0] === "diff") {
+        throw diffError();
+      }
       return { stdout: `${await plainGit.exec(cwd, args)}\n`, stderr: "" };
     } finally {
       pending -= 1;
@@ -97,8 +100,8 @@ function createRecordingGit(): {
   return { git, calls, waitForGitIdle };
 }
 
-async function createManager(root: string, fileA: string, fileB: string) {
-  const recording = createRecordingGit();
+async function createManager(root: string, fileA: string, fileB: string, diffError?: () => Error) {
+  const recording = createRecordingGit(diffError);
   const editorA = new FakeTextEditor(fileA);
   const editorB = new FakeTextEditor(fileB);
   switchToEditor(editorA, [editorA, editorB]);
@@ -118,8 +121,8 @@ async function createManager(root: string, fileA: string, fileB: string) {
   return { manager, editorA, editorB, ...recording };
 }
 
-async function startReview(root: string, fileA: string, fileB: string) {
-  const session = await createManager(root, fileA, fileB);
+async function startReview(root: string, fileA: string, fileB: string, diffError?: () => Error) {
+  const session = await createManager(root, fileA, fileB, diffError);
   await session.manager.resumeReview();
   await session.waitForGitIdle();
   return session;
@@ -245,6 +248,42 @@ test(
     const savedCalls = calls.slice(warmCalls);
     expect(savedCalls.filter((args) => args.includes("status"))).toHaveLength(1);
     expect(savedCalls.filter((args) => args[0] === "diff")).toEqual([]);
+  },
+  TIMEOUT_MS,
+);
+
+test(
+  "a diff that is too large reports the reason once instead of failing silently",
+  async () => {
+    const { root, fileA, fileB } = await createReviewRepo();
+    const rejections: unknown[] = [];
+    const recordRejection = (reason: unknown): void => {
+      rejections.push(reason);
+    };
+    process.on("unhandledRejection", recordRejection);
+    cleanups.push(() => {
+      process.off("unhandledRejection", recordRejection);
+    });
+
+    const { editorA, editorB, waitForGitIdle } = await startReview(
+      root,
+      fileA,
+      fileB,
+      () =>
+        new GitOutputTooLargeError({
+          args: ["diff"],
+          cwd: root,
+          limitBytes: 64 * 1024 * 1024,
+        }),
+    );
+    switchToEditor(editorB, [editorA, editorB]);
+    await waitForGitIdle();
+
+    const failures = shownMessages.filter((message) => message.includes("could not load"));
+    expect(failures).toHaveLength(1);
+    expect(failures[0]).toContain("larger than 64 MB");
+    expect(markedLines(editorA, "change")).toEqual([]);
+    expect(rejections).toEqual([]);
   },
   TIMEOUT_MS,
 );

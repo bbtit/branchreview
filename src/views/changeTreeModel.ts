@@ -8,6 +8,8 @@ export type ChangesTreeSnapshot = {
   files: readonly ChangedFile[];
   /** Reviewed paths for the current `(base, branch)` session (D10). */
   reviewedPaths?: readonly string[];
+  /** Why `base...HEAD` could not be loaded; shown instead of the file list. */
+  error?: string;
 };
 
 export type ChangesTreeRow =
@@ -60,6 +62,16 @@ export function changesTreeRowsFromSnapshot(snapshot: ChangesTreeSnapshot): Chan
       label: `Base: ${snapshot.base}`,
     },
   ];
+
+  if (snapshot.error) {
+    rows.push({
+      kind: "message",
+      id: "diff-error",
+      label: "Could not load changes",
+      description: snapshot.error,
+    });
+    return rows;
+  }
 
   if (snapshot.files.length === 0) {
     rows.push({

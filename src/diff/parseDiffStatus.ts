@@ -1,17 +1,19 @@
 import type { FileChangeStatus } from "./types.ts";
 
-export type NameStatusEntry = {
+export type DiffStatusEntry = {
   status: FileChangeStatus;
   path: string;
   oldPath?: string;
 };
 
 /**
- * Parse `git diff --name-status` output into file entries.
+ * Parse per-file status lines into file entries.
+ * Accepts `git diff --name-status` lines (`M\tpath`) and `git diff --raw` lines,
+ * which prefix the status with `:<old mode> <new mode> <old sha> <new sha> `.
  * Rename/copy lines are `R100\told\tnew` / `C100\told\tnew`.
  */
-export function parseNameStatus(output: string): NameStatusEntry[] {
-  const entries: NameStatusEntry[] = [];
+export function parseDiffStatus(output: string): DiffStatusEntry[] {
+  const entries: DiffStatusEntry[] = [];
   for (const rawLine of output.split(/\r?\n/)) {
     const line = rawLine.trimEnd();
     if (!line) {
@@ -23,9 +25,11 @@ export function parseNameStatus(output: string): NameStatusEntry[] {
       continue;
     }
 
-    const code = line.slice(0, tab);
-    const rest = line.slice(tab + 1);
-    const paths = rest.split("\t");
+    const code = statusCodeFromField(line.slice(0, tab));
+    if (!code) {
+      continue;
+    }
+    const paths = line.slice(tab + 1).split("\t");
 
     if (code.startsWith("R") && paths.length >= 2) {
       entries.push({
@@ -58,6 +62,15 @@ export function parseNameStatus(output: string): NameStatusEntry[] {
     entries.push({ status, path });
   }
   return entries;
+}
+
+/** `M` stays `M`; a raw field like `:100644 100644 abc def M` yields `M`. */
+function statusCodeFromField(field: string): string | undefined {
+  if (!field.startsWith(":")) {
+    return field;
+  }
+  const fields = field.split(" ");
+  return fields[fields.length - 1];
 }
 
 function statusFromCode(code: string): FileChangeStatus | undefined {

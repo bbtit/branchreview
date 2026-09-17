@@ -113,6 +113,25 @@ test("shows empty changes row when overlay is on but diff is empty", () => {
   ]);
 });
 
+test("explains why changes are missing instead of claiming there are none", () => {
+  expect(
+    changesTreeRowsFromSnapshot({
+      overlayActive: true,
+      base: "main",
+      files: [],
+      error: "diff is too large (over 64 MB)",
+    }),
+  ).toEqual([
+    { kind: "base", id: "base:main", label: "Base: main" },
+    {
+      kind: "message",
+      id: "diff-error",
+      label: "Could not load changes",
+      description: "diff is too large (over 64 MB)",
+    },
+  ]);
+});
+
 test("marks deleted files as not openable", () => {
   const row = fileRowFromChangedFile(file({ path: "gone.ts", status: "deleted", deletions: 3 }));
   expect(row.openable).toBe(false);

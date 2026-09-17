@@ -1,15 +1,12 @@
-import { parseNameStatus } from "./parseNameStatus.ts";
+import { parseDiffStatus } from "./parseDiffStatus.ts";
 import { parseUnifiedDiff } from "./parseUnifiedDiff.ts";
 import type { ChangedFile, DiffHunk, GitDiff } from "./types.ts";
 
 /**
- * Build §18 ChangedFile list from `git diff --name-status` + `git diff --unified=0`.
+ * Build the §18 ChangedFile list from per-file status lines plus a unified diff.
  */
-export function buildChangedFiles(
-  nameStatusOutput: string,
-  unifiedDiffOutput: string,
-): ChangedFile[] {
-  const entries = parseNameStatus(nameStatusOutput);
+export function buildChangedFiles(statusOutput: string, unifiedDiffOutput: string): ChangedFile[] {
+  const entries = parseDiffStatus(statusOutput);
   const { hunksByPath, binaryPaths } = parseUnifiedDiff(unifiedDiffOutput);
 
   return entries.map((entry) => {
@@ -38,13 +35,28 @@ export function buildChangedFiles(
 export function buildGitDiff(
   base: string,
   head: string,
-  nameStatusOutput: string,
+  statusOutput: string,
   unifiedDiffOutput: string,
 ): GitDiff {
   return {
     base,
     head,
-    files: buildChangedFiles(nameStatusOutput, unifiedDiffOutput),
+    files: buildChangedFiles(statusOutput, unifiedDiffOutput),
+  };
+}
+
+/**
+ * Split `git diff --raw --unified=0` output: raw status lines come first,
+ * then the patch starting at the first `diff --git` header.
+ */
+export function splitRawStatusAndPatch(output: string): { status: string; patch: string } {
+  const patchStart = /^diff --git /m.exec(output);
+  if (!patchStart) {
+    return { status: output, patch: "" };
+  }
+  return {
+    status: output.slice(0, patchStart.index),
+    patch: output.slice(patchStart.index),
   };
 }
 

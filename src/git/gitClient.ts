@@ -1,10 +1,15 @@
 import { execFile } from "node:child_process";
 import { isAbsolute, normalize, resolve } from "node:path";
 import { promisify } from "node:util";
-import { buildGitDiff } from "../diff/buildChangedFiles.ts";
+import { buildGitDiff, splitRawStatusAndPatch } from "../diff/buildChangedFiles.ts";
 import type { ChangedFile, GitDiff } from "../diff/types.ts";
 
 const execFileAsync = promisify(execFile);
+
+/** Cap on one command's stdout: a huge diff must fail loudly, not silently (MVP-10c). */
+export const MAX_GIT_OUTPUT_BYTES = 64 * 1024 * 1024;
+
+const FULL_SHA = /^[0-9a-f]{40}$/;
 
 export type GitExecResult = {
   stdout: string;
@@ -45,30 +50,68 @@ export class GitError extends Error {
   }
 }
 
-async function defaultRunner(cwd: string, args: readonly string[]): Promise<GitExecResult> {
-  try {
-    const { stdout, stderr } = await execFileAsync("git", [...args], {
-      cwd,
-      encoding: "utf8",
-      maxBuffer: 10 * 1024 * 1024,
+/** Git printed more than SideDiff will buffer; callers explain this to the user. */
+export class GitOutputTooLargeError extends GitError {
+  readonly limitBytes: number;
+
+  constructor(options: {
+    args: readonly string[];
+    cwd: string;
+    limitBytes: number;
+    cause?: unknown;
+  }) {
+    super(`git output exceeded ${options.limitBytes} bytes`, {
+      args: options.args,
+      cwd: options.cwd,
+      stderr: "",
+      code: null,
+      cause: options.cause,
     });
-    return { stdout, stderr };
-  } catch (error) {
-    const err = error as Error & {
-      stdout?: string;
-      stderr?: string;
-      code?: number | string;
-    };
-    const exitCode = typeof err.code === "number" ? err.code : null;
-    throw new GitError(err.message || "git command failed", {
-      args,
-      cwd,
-      stderr: typeof err.stderr === "string" ? err.stderr : "",
-      code: exitCode,
-      cause: error,
-    });
+    this.name = "GitOutputTooLargeError";
+    this.limitBytes = options.limitBytes;
   }
 }
+
+/**
+ * Run Git, buffering at most `maxOutputBytes` of stdout.
+ * Exceeding the cap throws `GitOutputTooLargeError` instead of a bare ENOBUFS.
+ */
+export function createGitRunner(maxOutputBytes = MAX_GIT_OUTPUT_BYTES): GitRunner {
+  return async (cwd, args) => {
+    try {
+      const { stdout, stderr } = await execFileAsync("git", [...args], {
+        cwd,
+        encoding: "utf8",
+        maxBuffer: maxOutputBytes,
+      });
+      return { stdout, stderr };
+    } catch (error) {
+      const err = error as Error & {
+        stdout?: string;
+        stderr?: string;
+        code?: number | string;
+      };
+      if (err.code === "ERR_CHILD_PROCESS_STDIO_MAXBUFFER") {
+        throw new GitOutputTooLargeError({
+          args,
+          cwd,
+          limitBytes: maxOutputBytes,
+          cause: error,
+        });
+      }
+      const exitCode = typeof err.code === "number" ? err.code : null;
+      throw new GitError(err.message || "git command failed", {
+        args,
+        cwd,
+        stderr: typeof err.stderr === "string" ? err.stderr : "",
+        code: exitCode,
+        cause: error,
+      });
+    }
+  };
+}
+
+const defaultRunner = createGitRunner();
 
 /**
  * All Git CLI execution goes through this client (requirements §17).
@@ -86,29 +129,22 @@ export class GitClient {
   }
 
   /**
-   * Three-dot diff only: `git diff --unified=0 <base>...<head>`.
+   * Three-dot diff only: `git diff --unified=0 --raw <base>...<head>`.
    * Compares merge-base(base, head)..head — never the working tree (D2).
+   * `--raw` adds the per-file status lines, so one process yields both (MVP-10c).
    */
-  async getUnifiedDiff(cwd: string, base: string, head = "HEAD"): Promise<string> {
-    return this.exec(cwd, ["diff", "--unified=0", `${base}...${head}`]);
-  }
-
-  /** `git diff --name-status <base>...<head>`. */
-  async getNameStatus(cwd: string, base: string, head = "HEAD"): Promise<string> {
-    return this.exec(cwd, ["diff", "--name-status", `${base}...${head}`]);
+  async getRawStatusAndPatch(cwd: string, base: string, head = "HEAD"): Promise<string> {
+    return this.exec(cwd, ["diff", "--unified=0", "--raw", `${base}...${head}`]);
   }
 
   /** Parsed `base...HEAD` diff model (requirements §17 / §18). */
   async getDiff(cwd: string, base: string, head = "HEAD"): Promise<GitDiff> {
-    const headSha =
-      head === "HEAD"
-        ? await this.getCurrentRevision(cwd)
-        : await this.exec(cwd, ["rev-parse", head]);
-    const [nameStatus, unified] = await Promise.all([
-      this.getNameStatus(cwd, base, head),
-      this.getUnifiedDiff(cwd, base, head),
-    ]);
-    return buildGitDiff(base, headSha, nameStatus, unified);
+    // Callers pass a resolved SHA during a review; only names need another process.
+    const headSha = FULL_SHA.test(head) ? head : await this.exec(cwd, ["rev-parse", head]);
+    const { status, patch } = splitRawStatusAndPatch(
+      await this.getRawStatusAndPatch(cwd, base, head),
+    );
+    return buildGitDiff(base, headSha, status, patch);
   }
 
   async getChangedFiles(cwd: string, base: string, head = "HEAD"): Promise<ChangedFile[]> {
