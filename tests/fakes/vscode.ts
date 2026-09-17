@@ -221,9 +221,23 @@ const visibleEditorsChanged = new EventEmitter<readonly FakeTextEditor[]>();
 const windowStateChanged = new EventEmitter<{ focused: boolean }>();
 const documentSaved = new EventEmitter<unknown>();
 
+export type FakeStatusBarItem = {
+  text: string;
+  tooltip: string;
+  command: string;
+  show(): void;
+  dispose(): void;
+};
+
+export type FakeTreeDataProvider = { getChildren(element?: unknown): unknown[] };
+
 export const decorationTypes: FakeDecorationType[] = [];
 export const fileSystemWatchers: FakeFileSystemWatcher[] = [];
 export const shownMessages: string[] = [];
+export const statusBarItems: FakeStatusBarItem[] = [];
+export const treeDataProviders: FakeTreeDataProvider[] = [];
+/** Paths passed to `openTextDocument`, so tests can prove nothing was opened. */
+export const openedDocuments: string[] = [];
 
 async function recordMessage(message: string): Promise<undefined> {
   shownMessages.push(message);
@@ -236,14 +250,24 @@ export const window = {
   onDidChangeActiveTextEditor: activeEditorChanged.event,
   onDidChangeVisibleTextEditors: visibleEditorsChanged.event,
   onDidChangeWindowState: windowStateChanged.event,
-  createStatusBarItem: () => ({
-    text: "",
-    tooltip: "",
-    command: "",
-    show(): void {},
-    dispose(): void {},
-  }),
-  createTreeView: () => new Disposable(() => {}),
+  createStatusBarItem: (): FakeStatusBarItem => {
+    const item: FakeStatusBarItem = {
+      text: "",
+      tooltip: "",
+      command: "",
+      show(): void {},
+      dispose(): void {},
+    };
+    statusBarItems.push(item);
+    return item;
+  },
+  createTreeView: (
+    _id: string,
+    options: { treeDataProvider: FakeTreeDataProvider },
+  ): Disposable => {
+    treeDataProviders.push(options.treeDataProvider);
+    return new Disposable(() => {});
+  },
   createTextEditorDecorationType: (options: { gutterIconPath?: Uri }): FakeDecorationType => {
     const type = { key: `decoration-${decorationTypes.length}`, options, dispose(): void {} };
     decorationTypes.push(type);
@@ -265,7 +289,10 @@ export const workspace = {
     fileSystemWatchers.push(watcher);
     return watcher;
   },
-  openTextDocument: async (uri: Uri): Promise<{ uri: Uri }> => ({ uri }),
+  openTextDocument: async (uri: Uri): Promise<{ uri: Uri }> => {
+    openedDocuments.push(uri.fsPath);
+    return { uri };
+  },
 };
 
 /** A document save, which VS Code reports after the file has been written. */
@@ -292,4 +319,7 @@ export function resetFakeVscode(): void {
   decorationTypes.length = 0;
   fileSystemWatchers.length = 0;
   shownMessages.length = 0;
+  statusBarItems.length = 0;
+  treeDataProviders.length = 0;
+  openedDocuments.length = 0;
 }
