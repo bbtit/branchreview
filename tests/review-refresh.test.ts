@@ -171,7 +171,7 @@ test(
 
     const savedCalls = calls.slice(warmCalls);
     expect(savedCalls.filter(isDirtyCheck)).toHaveLength(1);
-    expect(savedCalls.filter((args) => args[0] === "diff")).toEqual([]);
+    expect(savedCalls.filter((args) => args.includes("diff"))).toEqual([]);
   },
   TIMEOUT_MS,
 );

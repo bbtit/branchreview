@@ -167,3 +167,109 @@ test("marks binary files without text hunks", () => {
     },
   ]);
 });
+
+// Real `git -c core.quotepath=false diff` output. Git appends a TAB to the
+// `---` / `+++` lines when the path contains a space, and still C-quotes a
+// path that contains `"` or a backslash.
+const SPACE_NAME_DIFF = `diff --git a/sp ace.txt b/sp ace.txt
+index 3582182..510ab2a 100644
+--- a/sp ace.txt\t
++++ b/sp ace.txt\t
+@@ -2 +2 @@ l1
+-l2
++CHANGED
+`;
+
+const QUOTED_NAME_DIFF = `diff --git "a/qu\\"ote.txt" "b/qu\\"ote.txt"
+index 3582182..510ab2a 100644
+--- "a/qu\\"ote.txt"
++++ "b/qu\\"ote.txt"
+@@ -2 +2 @@ l1
+-l2
++CHANGED
+`;
+
+const SPACE_BINARY_DIFF = `diff --git a/bin ary.bin b/bin ary.bin
+index eaf36c1..20c394d 100644
+Binary files a/bin ary.bin and b/bin ary.bin differ
+`;
+
+const SPACE_DELETED_DIFF = `diff --git a/del sp.txt b/del sp.txt
+deleted file mode 100644
+index 3582182..0000000
+--- a/del sp.txt\t
++++ /dev/null
+@@ -1,2 +0,0 @@
+-l1
+-l2
+`;
+
+test("finds hunks for a path that contains spaces", () => {
+  const hunks = parseUnifiedDiff(SPACE_NAME_DIFF).hunksByPath.get("sp ace.txt");
+  expect(hunks).toHaveLength(1);
+  expect(hunks![0]!.changes).toEqual([
+    { type: "delete", oldLine: 2, content: "l2" },
+    { type: "add", newLine: 2, content: "CHANGED" },
+  ]);
+});
+
+test("finds hunks for a quoted path under its real name", () => {
+  const hunks = parseUnifiedDiff(QUOTED_NAME_DIFF).hunksByPath.get('qu"ote.txt');
+  expect(hunks).toHaveLength(1);
+  expect(hunks![0]!.changes).toHaveLength(2);
+});
+
+test("finds hunks for a deleted file whose name contains spaces", () => {
+  const hunks = parseUnifiedDiff(SPACE_DELETED_DIFF).hunksByPath.get("del sp.txt");
+  expect(hunks).toHaveLength(1);
+  expect(hunks![0]!.changes).toEqual([
+    { type: "delete", oldLine: 1, content: "l1" },
+    { type: "delete", oldLine: 2, content: "l2" },
+  ]);
+});
+
+test("marks a binary file whose name contains spaces", () => {
+  expect(parseUnifiedDiff(SPACE_BINARY_DIFF).binaryPaths.has("bin ary.bin")).toBe(true);
+});
+
+test("reads an octal-escaped non-ASCII path back as its real name", () => {
+  expect(
+    parseDiffStatus(
+      ':100644 100644 3582182 510ab2a M\t"\\346\\227\\245\\346\\234\\254\\350\\252\\236.txt"\n',
+    ),
+  ).toEqual([{ status: "modified", path: "日本語.txt" }]);
+});
+
+test("reads a quoted path with an escaped quote back as its real name", () => {
+  expect(parseDiffStatus(':100644 100644 3582182 510ab2a M\t"qu\\"ote.txt"\n')).toEqual([
+    { status: "modified", path: 'qu"ote.txt' },
+  ]);
+});
+
+test("treats an added line that looks like a file header as content", () => {
+  const diff = `diff --git a/c.txt b/c.txt
+index 1111111..2222222 100644
+--- a/c.txt
++++ b/c.txt
+@@ -1,0 +2 @@ x
++++ increment
+`;
+  const hunks = parseUnifiedDiff(diff).hunksByPath.get("c.txt");
+  expect(hunks![0]!.changes).toEqual([{ type: "add", newLine: 2, content: "++ increment" }]);
+});
+
+test("merges spaced and non-ASCII names from status lines and patch", () => {
+  const status = `:100644 100644 3582182 510ab2a M\tsp ace.txt
+:100644 100644 eaf36c1 20c394d M\tbin ary.bin
+:100644 100644 3582182 510ab2a M\t"qu\\"ote.txt"
+`;
+  const files = buildChangedFiles(
+    status,
+    `${SPACE_NAME_DIFF}${SPACE_BINARY_DIFF}${QUOTED_NAME_DIFF}`,
+  );
+  const byPath = new Map(files.map((file) => [file.path, file]));
+
+  expect(byPath.get("sp ace.txt")).toMatchObject({ additions: 1, deletions: 1 });
+  expect(byPath.get("bin ary.bin")).toMatchObject({ binary: true, hunks: [] });
+  expect(byPath.get('qu"ote.txt')).toMatchObject({ additions: 1, deletions: 1 });
+});

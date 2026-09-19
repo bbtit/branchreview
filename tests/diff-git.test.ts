@@ -109,8 +109,10 @@ test("passes a three-dot revision range to git diff", async () => {
 
   await client.getChangedFiles(root, "main", "HEAD");
 
-  const diffCalls = calls.filter((args) => args[0] === "diff");
+  const diffCalls = calls.filter((args) => args.includes("diff"));
   // One process carries both the status lines and the patch (MVP-10c).
-  expect(diffCalls).toEqual([["diff", "--unified=0", "--raw", "main...HEAD"]]);
+  expect(diffCalls).toEqual([
+    ["-c", "core.quotepath=false", "diff", "--unified=0", "--raw", "main...HEAD"],
+  ]);
   expect(diffCalls.some((args) => args.includes("main..HEAD"))).toBe(false);
 });

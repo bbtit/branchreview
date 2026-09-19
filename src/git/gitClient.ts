@@ -132,9 +132,18 @@ export class GitClient {
    * Three-dot diff only: `git diff --unified=0 --raw <base>...<head>`.
    * Compares merge-base(base, head)..head — never the working tree (D2).
    * `--raw` adds the per-file status lines, so one process yields both (MVP-10c).
+   * `core.quotepath=false` prints non-ASCII paths as themselves instead of octal
+   * escapes, so a Japanese file name reaches the parser intact (#17).
    */
   async getRawStatusAndPatch(cwd: string, base: string, head = "HEAD"): Promise<string> {
-    return this.exec(cwd, ["diff", "--unified=0", "--raw", `${base}...${head}`]);
+    return this.exec(cwd, [
+      "-c",
+      "core.quotepath=false",
+      "diff",
+      "--unified=0",
+      "--raw",
+      `${base}...${head}`,
+    ]);
   }
 
   /** Parsed `base...HEAD` diff model (requirements §17 / §18). */

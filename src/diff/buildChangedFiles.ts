@@ -7,7 +7,16 @@ import type { ChangedFile, DiffHunk, GitDiff } from "./types.ts";
  */
 export function buildChangedFiles(statusOutput: string, unifiedDiffOutput: string): ChangedFile[] {
   const entries = parseDiffStatus(statusOutput);
-  const { hunksByPath, binaryPaths } = parseUnifiedDiff(unifiedDiffOutput);
+  // The status lines are the authority on paths; the patch headers are ambiguous
+  // when an unquoted name contains a space.
+  const knownPaths: string[] = [];
+  for (const entry of entries) {
+    knownPaths.push(entry.path);
+    if (entry.oldPath !== undefined) {
+      knownPaths.push(entry.oldPath);
+    }
+  }
+  const { hunksByPath, binaryPaths } = parseUnifiedDiff(unifiedDiffOutput, knownPaths);
 
   return entries.map((entry) => {
     const hunks = hunksForEntry(entry.path, entry.oldPath, hunksByPath);

@@ -1,3 +1,4 @@
+import { unquoteGitPath } from "./gitPathQuoting.ts";
 import type { FileChangeStatus } from "./types.ts";
 
 export type DiffStatusEntry = {
@@ -15,7 +16,8 @@ export type DiffStatusEntry = {
 export function parseDiffStatus(output: string): DiffStatusEntry[] {
   const entries: DiffStatusEntry[] = [];
   for (const rawLine of output.split(/\r?\n/)) {
-    const line = rawLine.trimEnd();
+    // Only a stray CR is trimmed: a trailing space can be part of the name.
+    const line = rawLine.replace(/\r$/, "");
     if (!line) {
       continue;
     }
@@ -29,7 +31,11 @@ export function parseDiffStatus(output: string): DiffStatusEntry[] {
     if (!code) {
       continue;
     }
-    const paths = line.slice(tab + 1).split("\t");
+    // A tab inside a name is escaped, so tabs here only separate fields.
+    const paths = line
+      .slice(tab + 1)
+      .split("\t")
+      .map(unquoteGitPath);
 
     if (code.startsWith("R") && paths.length >= 2) {
       entries.push({

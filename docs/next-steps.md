@@ -20,37 +20,28 @@ MVP の実装 issue（#1〜#11、#14〜#16）はすべて完了し、実際の V
 
 ---
 
-## 2. 既知の不具合 — 最優先
+## 2. 既知の不具合
 
-### 2.1 空白・非 ASCII を含むファイル名で gutter が出ない
+### 2.1 空白・非 ASCII を含むファイル名で gutter が出ない — 修正済み
 
-issue: [#17](https://github.com/bbtit/sidediff/issues/17)（再現手順・原因・終了条件はそちら）
+issue: [#17](https://github.com/bbtit/sidediff/issues/17)
 
-MVP-11 のエッジケース検証に **入っていなかった穴**。日本語のファイル名は日常的に出るため、実用上の影響が大きい。
+原因は、git が出すパス表記を素通ししていたこと。3点を直した。
 
-実測（2026-09-20、`main` = `9aac40d` 時点）:
+- `git -c core.quotepath=false diff …` にして、非 ASCII パスが8進エスケープにならないようにした
+- `---` / `+++` 行の行末タブを落とす。名前の中のタブはエスケープされるので、最初のタブが必ず終端になる
+- C 形式クォート（`"…"` + エスケープ）の解除を `src/diff/gitPathQuoting.ts` に置き、
+  raw のステータス行と patch の両方で通す
 
-| ファイル名   | Changes ツリー                                        | hunks | gutter / hover / ± |
-| ------------ | ----------------------------------------------------- | ----: | ------------------ |
-| `plain.txt`  | 正常                                                  |     1 | 出る               |
-| `sp ace.txt` | 名前は正しい                                          |     0 | **出ない**         |
-| `日本語.txt` | `"\346\227\245\346\234\254\350\252\236.txt"` と化ける |     0 | **出ない**         |
+加えて `diff --git a/… b/…` は、空白入りの名前だと一意に分割できない（`a/sp ace.txt b/sp ace.txt`）。
+そのため rename 以外は左右が同じであることを使って中央で割り、
+それでも決まらないときは **raw のステータス行が報告したパス一覧を正として** 突き合わせる。
+ついでに、hunk の中の `+++ x`（`++ x` という行の追加）をファイルヘッダと誤読するバグも直した。
 
-原因は2つ:
+テスト: `tests/edge-cases.test.ts` に空白入り・日本語・`"` を含む名前の end-to-end、
+`tests/diff-parser.test.ts` にパーサ単体を追加。いずれも修正前のコードで落ちることを確認済み。
 
-1. `+++ b/sp ace.txt<TAB>` — git は空白を含むパスの `---` / `+++` 行に行末タブを付ける。
-   これを含めたままパスにしているため、hunk がどのファイルにも紐づかない
-   （`src/diff/parseUnifiedDiff.ts` の `pathFromPlusMinusLine`）
-2. git は既定（`core.quotepath=true`）で非 ASCII パスを C 形式（`"\346..."`）でクォートして出す。
-   raw のステータス行・patch のどちらもクォートを解除していない
-   （`src/diff/parseDiffStatus.ts` / `src/diff/parseUnifiedDiff.ts`）
-
-対応案:
-
-- `git -c core.quotepath=false diff …` を使い、非 ASCII のクォートを避ける
-- `--raw -z`（NUL 区切り）でパス一覧を確実に取り、そのパス一覧を正として patch の各セクションを対応づける
-- `---` / `+++` 行の行末タブを落とす。C 形式クォート（`"…"` + 8進エスケープ）の解除も実装する
-- 終了条件には「空白入り・日本語・`"` を含む名前で gutter / hover / ± が出る」を入れる
+残り: 実 VS Code での確認（手順は [`manual-tests.md`](./manual-tests.md) のケース12）。
 
 ### 2.2 multi-root の同時レビュー
 

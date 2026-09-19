@@ -147,6 +147,98 @@ test(
   TIMEOUT_MS,
 );
 
+type TrickyNameRepo = {
+  root: string;
+  spacedFile: string;
+  japaneseFile: string;
+  quotedFile: string;
+};
+
+/**
+ * `main` → `feature/names` where every path needs quoting or splitting care:
+ * a space, non-ASCII characters, and a literal `"` (issue #17), plus a rename,
+ * a delete, an add, and a binary change carrying the same kinds of names.
+ */
+async function createTrickyNameRepo(): Promise<TrickyNameRepo> {
+  const root = await realpath(await mkdtemp(join(tmpdir(), "sidediff-names-")));
+  registerCleanup(() => rm(root, { recursive: true, force: true }));
+  await plainGit.exec(root, ["init", "-b", "main"]);
+  await plainGit.exec(root, ["config", "user.email", "sidediff@example.com"]);
+  await plainGit.exec(root, ["config", "user.name", "SideDiff Test"]);
+  await writeFile(join(root, "sp ace.txt"), "l1\nl2\n", "utf8");
+  await writeFile(join(root, "日本語.txt"), "l1\nl2\n", "utf8");
+  await writeFile(join(root, 'qu"ote.txt'), "l1\nl2\n", "utf8");
+  await writeFile(join(root, "画像.bin"), Buffer.from([0, 1, 2, 3]));
+  await writeFile(join(root, "旧 name.txt"), "keep1\nkeep2\nkeep3\n", "utf8");
+  await writeFile(join(root, "削除 file.txt"), "gone\n", "utf8");
+  await plainGit.exec(root, ["add", "-A"]);
+  await plainGit.exec(root, ["commit", "-m", "base"]);
+
+  await plainGit.exec(root, ["checkout", "-b", "feature/names"]);
+  await writeFile(join(root, "sp ace.txt"), "l1\nCHANGED\n", "utf8");
+  await writeFile(join(root, "日本語.txt"), "l1\nCHANGED\n", "utf8");
+  await writeFile(join(root, 'qu"ote.txt'), "l1\nCHANGED\n", "utf8");
+  await writeFile(join(root, "画像.bin"), Buffer.from([9, 9, 9, 9, 9]));
+  // Content stays identical so Git reports a rename rather than add + delete.
+  await plainGit.exec(root, ["mv", "旧 name.txt", "新 name.txt"]);
+  await rm(join(root, "削除 file.txt"));
+  await writeFile(join(root, "追加 file.txt"), "new1\nnew2\n", "utf8");
+  await plainGit.exec(root, ["add", "-A"]);
+  await plainGit.exec(root, ["commit", "-m", "names"]);
+
+  return {
+    root,
+    spacedFile: join(root, "sp ace.txt"),
+    japaneseFile: join(root, "日本語.txt"),
+    quotedFile: join(root, 'qu"ote.txt'),
+  };
+}
+
+test(
+  "a file name with a space gets gutters, and every tricky name lists under its real name",
+  async () => {
+    const repo = await createTrickyNameRepo();
+    const spaced = new FakeTextEditor(repo.spacedFile);
+    await startReview({ root: repo.root, editors: [spaced] });
+
+    expect(markedLines(spaced, "change")).toEqual([2]);
+
+    const rows = new Map(treeRows().map((row) => [row.label, row.description]));
+    expect(rows.get("M sp ace.txt")).toBe("+1 -1");
+    expect(rows.get("M 日本語.txt")).toBe("+1 -1");
+    expect(rows.get('M qu"ote.txt')).toBe("+1 -1");
+    expect(rows.get("A 追加 file.txt")).toBe("+2");
+    expect(rows.get("D 削除 file.txt")).toBe("-1");
+    expect(rows.get("M 画像.bin")).toBe("binary");
+    expect(rows.get("R 新 name.txt")).toBe("旧 name.txt →");
+  },
+  TIMEOUT_MS,
+);
+
+test(
+  "a non-ASCII file name gets gutters",
+  async () => {
+    const repo = await createTrickyNameRepo();
+    const japanese = new FakeTextEditor(repo.japaneseFile);
+    await startReview({ root: repo.root, editors: [japanese] });
+
+    expect(markedLines(japanese, "change")).toEqual([2]);
+  },
+  TIMEOUT_MS,
+);
+
+test(
+  "a file name containing a quote gets gutters",
+  async () => {
+    const repo = await createTrickyNameRepo();
+    const quoted = new FakeTextEditor(repo.quotedFile);
+    await startReview({ root: repo.root, editors: [quoted] });
+
+    expect(markedLines(quoted, "change")).toEqual([2]);
+  },
+  TIMEOUT_MS,
+);
+
 test("no source file opens a Diff Editor", async () => {
   const sourceDir = fileURLToPath(new URL("../src", import.meta.url));
   const entries = await readdir(sourceDir, { recursive: true });

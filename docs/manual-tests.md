@@ -119,8 +119,57 @@ VS Code でこのフォルダを開き、`F5`（拡張の開発ホスト）ま�
 - **期待**: 通常どおり gutter と Changes ツリーが出る（64MB までは読む）
 - 64MB を超える場合、`SideDiff: could not load …` のエラーと、Changes ツリーの `Could not load changes` 行が出る（「No changes」とは出ない）
 
+### 12. 空白・非 ASCII・`"` を含むファイル名（#17）
+
+自動テストは `tests/edge-cases.test.ts` で通っているが、**実 VS Code での確認はこのケースで行う**。
+上の検証用リポジトリとは別に、名前だけを問題にする小さなリポジトリを作る。
+
+```sh
+mkdir sidediff-names && cd sidediff-names
+git init -b main
+git config user.email you@example.com
+git config user.name "You"
+
+printf 'l1\nl2\n' > "sp ace.txt"
+printf 'l1\nl2\n' > "日本語.txt"
+printf 'l1\nl2\n' > 'qu"ote.txt'
+printf 'keep1\nkeep2\nkeep3\n' > "旧 name.txt"
+printf 'gone\n' > "削除 file.txt"
+printf '\x00\x01\x02\x03' > "画像.bin"
+git add -A && git commit -m base
+
+git checkout -b feature/names
+printf 'l1\nCHANGED\n' > "sp ace.txt"
+printf 'l1\nCHANGED\n' > "日本語.txt"
+printf 'l1\nCHANGED\n' > 'qu"ote.txt'
+git mv "旧 name.txt" "新 name.txt"        # 中身は変えない → R 判定
+rm "削除 file.txt"
+printf 'new1\nnew2\n' > "追加 file.txt"
+printf '\x09\x09\x09\x09\x09' > "画像.bin"
+git add -A && git commit -m names
+```
+
+このフォルダを VS Code で開き、`SideDiff: Set Base` → `main` を選ぶ。
+
+- **期待（Changes ツリー）**: 表示名が実ファイル名と一致し、`"\346\227\245..."` のような化け方をしない
+
+  | 行                | 説明            |
+  | ----------------- | --------------- |
+  | `M sp ace.txt`    | `+1 -1`         |
+  | `M 日本語.txt`    | `+1 -1`         |
+  | `M qu"ote.txt`    | `+1 -1`         |
+  | `A 追加 file.txt` | `+2`            |
+  | `D 削除 file.txt` | `-1`            |
+  | `M 画像.bin`      | `binary`        |
+  | `R 新 name.txt`   | `旧 name.txt →` |
+
+- `sp ace.txt` / `日本語.txt` / `qu"ote.txt` をそれぞれ開く
+- **期待**: どれも2行目に変更の gutter マークが出て、hover に旧行 `l2` が出る（`#17` 以前はマークが1つも出なかった）
+- `R 新 name.txt` をクリック → 新しいパスで通常のエディタが開く
+- `D 削除 file.txt` をクリック → 情報メッセージのみ
+
 ## 後片付け
 
 ```sh
-cd .. && rm -rf sidediff-manual
+cd .. && rm -rf sidediff-manual sidediff-names
 ```

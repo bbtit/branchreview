@@ -61,7 +61,7 @@ export function createRecordingGit(diffError?: () => Error): {
     pending += 1;
     lastActivity = Date.now();
     try {
-      if (diffError && args[0] === "diff") {
+      if (diffError && args.includes("diff")) {
         throw diffError();
       }
       return { stdout: `${await plainGit.exec(cwd, args)}\n`, stderr: "" };

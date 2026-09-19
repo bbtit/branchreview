@@ -50,7 +50,7 @@ function createSlowCountingClient(delayMs: number): {
     if (args[0] === "rev-parse" && args[1] === "HEAD") {
       return { stdout: "abc123\n", stderr: "" };
     }
-    if (args[0] === "diff") {
+    if (args.includes("diff")) {
       // One run carries the raw status lines and the patch (MVP-10c).
       calls += 1;
       await new Promise((r) => setTimeout(r, delayMs));
