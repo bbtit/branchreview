@@ -18,6 +18,9 @@ dist/**/*.map
 # Only the rasterized icon ships; the SVG is just what it was drawn from.
 media/icon.svg
 
+# The Marketplace renders README.md only; the translation stays in the repo.
+README.ja.md
+
 .gitignore
 .npmrc
 AGENTS.md

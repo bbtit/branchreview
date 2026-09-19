@@ -1,5 +1,7 @@
 # SideDiff
 
+_日本語: [README.ja.md](./README.ja.md)_
+
 **Diff is metadata, not the document.**
 
 Review a pull request without leaving your codebase. SideDiff keeps the branch open in the **normal editor** — IntelliSense, go-to-definition, find-references, your own extensions, all of it — and paints the diff on top as gutter marks and hovers.
