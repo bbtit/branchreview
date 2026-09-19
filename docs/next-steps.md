@@ -93,8 +93,11 @@ issue: [#17](https://github.com/bbtit/sidediff/issues/17)
 
 要件に定義済みで、MVP から意図的に外したもの。着手するならこの順に価値が高い。
 
-1. **Inline Old Code**（§12）— 変更箇所に旧コードを展開する。hover の次の一手
-2. **GitHub PR 連携**（§13）— PR URL からレビュー開始。GitHub 依存は分離したまま入れる
-3. **Review comments**（§14）— 行コメントと PR への投稿
+1. **GitHub PR 連携**（§13）— PR URL からレビュー開始。GitHub 依存は分離したまま入れる
+2. **Review comments**（§14）— 行コメントと PR への投稿
+
+**Inline Old Code（§12）は作らないことにした**（2026-09-20 / [`decisions.md`](./decisions.md) D26）。
+旧コードは hover で全文見えており、それで足りるという判断。
+stable API ではエディタに行を増やせず、作れるのは行内に重ねる代替だけで、それは hover と役割が重なる。
 
 AI レビューは非目標（§15）。この製品の価値は、人間が codebase の文脈を持ったままレビューできることにある。
