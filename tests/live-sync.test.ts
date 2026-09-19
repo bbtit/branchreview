@@ -128,11 +128,11 @@ test("debounce runs once after quiet period", async () => {
 });
 
 test("resolves an absolute git directory for tip watching", async () => {
-  const root = await realpath(await mkdtemp(join(tmpdir(), "sidediff-gitdir-")));
+  const root = await realpath(await mkdtemp(join(tmpdir(), "branchreview-gitdir-")));
   cleanups.push(root);
   await realGit.exec(root, ["init", "-b", "main"]);
-  await realGit.exec(root, ["config", "user.email", "sidediff@example.com"]);
-  await realGit.exec(root, ["config", "user.name", "SideDiff Test"]);
+  await realGit.exec(root, ["config", "user.email", "branchreview@example.com"]);
+  await realGit.exec(root, ["config", "user.name", "BranchReview Test"]);
   await writeFile(join(root, "a.txt"), "a\n", "utf8");
   await realGit.exec(root, ["add", "a.txt"]);
   await realGit.exec(root, ["commit", "-m", "init"]);

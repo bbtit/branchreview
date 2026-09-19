@@ -1,16 +1,16 @@
-# SideDiff 手動テスト手順
+# BranchReview 手動テスト手順
 
 要件 [`requirements.md`](./requirements.md) §20 のエッジケースと §25 の受け入れ条件を、実際の VS Code 上で確認するための手順。
 自動テストは Node 上の Vitest（fake `vscode`）で動くため、**Extension Host の実挙動はここで確認する**。
 
-決定の正本は [`decisions.md`](./decisions.md)。コマンドはすべて `SideDiff: …`。
+決定の正本は [`decisions.md`](./decisions.md)。コマンドはすべて `BranchReview: …`。
 
 ## 準備
 
 任意の場所で以下を実行し、検証用リポジトリを作る。
 
 ```sh
-mkdir sidediff-manual && cd sidediff-manual
+mkdir branchreview-manual && cd branchreview-manual
 git init -b main
 git config user.email you@example.com
 git config user.name "You"
@@ -36,8 +36,8 @@ printf 'keep1\nKEEP-CHANGED\nkeep3\nLOCAL EDIT\n' > keep.txt  # dirty（未 comm
 
 VS Code でこのフォルダを開き、`F5`（拡張の開発ホスト）または拡張をインストールした状態で以下を実行する。
 
-1. コマンドパレット → `SideDiff: Set Base` → `main` を選ぶ
-2. ステータスバーが `SideDiff: main · local changes` になる
+1. コマンドパレット → `BranchReview: Set Base` → `main` を選ぶ
+2. ステータスバーが `BranchReview: main · local changes` になる
 
 ## ケース別の確認
 
@@ -51,7 +51,7 @@ VS Code でこのフォルダを開き、`F5`（拡張の開発ホスト）ま�
 
 - Changes ツリーに `D del.txt` が出る
 - `D del.txt` をクリックする
-- **期待**: エディタも Diff Editor も開かない。`SideDiff: del.txt was deleted on this branch.` という情報メッセージのみ
+- **期待**: エディタも Diff Editor も開かない。`BranchReview: del.txt was deleted on this branch.` という情報メッセージのみ
 
 ### 3. Renamed（リネーム）
 
@@ -81,7 +81,7 @@ VS Code でこのフォルダを開き、`F5`（拡張の開発ホスト）ま�
 ### 7. Diff Editor を開く導線が無いこと（回帰）
 
 - Changes ツリーのどの行をクリックしても、左右分割の Diff Editor が開かない
-- `SideDiff:` で始まるコマンド一覧に、Diff Editor を開くものが無い
+- `BranchReview:` で始まるコマンド一覧に、Diff Editor を開くものが無い
 - **期待**: レビュー導線は常に通常のエディタ
 
 ### 8. Next / Previous Change（D7）
@@ -109,15 +109,15 @@ VS Code でこのフォルダを開き、`F5`（拡張の開発ホスト）ま�
 ### 10. 自動 Stop（D5）と再開
 
 - レビュー中に `git checkout main` を実行する
-- **期待**: `SideDiff: stopped after branch change …` が出て overlay が止まり、gutter が消える。ステータスバーは `SideDiff: off`
-- `git checkout feature/demo` に戻して `SideDiff: Resume Review` を実行する
+- **期待**: `BranchReview: stopped after branch change …` が出て overlay が止まり、gutter が消える。ステータスバーは `BranchReview: off`
+- `git checkout feature/demo` に戻して `BranchReview: Resume Review` を実行する
 - **期待**: base の記憶（`main`）が残っているので、base を選び直さずにレビューが再開し、gutter が戻る
 
 ### 11. 大きな diff（MVP-10c）
 
 - 20万行規模のファイルを1コミットで追加したブランチを base と比較する
 - **期待**: 通常どおり gutter と Changes ツリーが出る（64MB までは読む）
-- 64MB を超える場合、`SideDiff: could not load …` のエラーと、Changes ツリーの `Could not load changes` 行が出る（「No changes」とは出ない）
+- 64MB を超える場合、`BranchReview: could not load …` のエラーと、Changes ツリーの `Could not load changes` 行が出る（「No changes」とは出ない）
 
 ### 12. 空白・非 ASCII・`"` を含むファイル名（#17）
 
@@ -125,7 +125,7 @@ VS Code でこのフォルダを開き、`F5`（拡張の開発ホスト）ま�
 上の検証用リポジトリとは別に、名前だけを問題にする小さなリポジトリを作る。
 
 ```sh
-mkdir sidediff-names && cd sidediff-names
+mkdir branchreview-names && cd branchreview-names
 git init -b main
 git config user.email you@example.com
 git config user.name "You"
@@ -149,7 +149,7 @@ printf '\x09\x09\x09\x09\x09' > "画像.bin"
 git add -A && git commit -m names
 ```
 
-このフォルダを VS Code で開き、`SideDiff: Set Base` → `main` を選ぶ。
+このフォルダを VS Code で開き、`BranchReview: Set Base` → `main` を選ぶ。
 
 - **期待（Changes ツリー）**: 表示名が実ファイル名と一致し、`"\346\227\245..."` のような化け方をしない
 
@@ -171,5 +171,5 @@ git add -A && git commit -m names
 ## 後片付け
 
 ```sh
-cd .. && rm -rf sidediff-manual sidediff-names
+cd .. && rm -rf branchreview-manual branchreview-names
 ```

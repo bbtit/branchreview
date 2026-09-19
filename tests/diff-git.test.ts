@@ -24,12 +24,12 @@ async function createTempDir(prefix: string): Promise<string> {
 
 async function gitInit(root: string, branch = "main"): Promise<void> {
   await git.exec(root, ["init", "-b", branch]);
-  await git.exec(root, ["config", "user.email", "sidediff@example.com"]);
-  await git.exec(root, ["config", "user.name", "SideDiff Test"]);
+  await git.exec(root, ["config", "user.email", "branchreview@example.com"]);
+  await git.exec(root, ["config", "user.name", "BranchReview Test"]);
 }
 
 test("compares base...HEAD and ignores uncommitted working tree edits", async () => {
-  const root = await createTempDir("sidediff-threedot-");
+  const root = await createTempDir("branchreview-threedot-");
   await gitInit(root, "main");
   await writeFile(join(root, "app.ts"), "v1\n", "utf8");
   await git.exec(root, ["add", "app.ts"]);
@@ -57,7 +57,7 @@ test("compares base...HEAD and ignores uncommitted working tree edits", async ()
 });
 
 test("classifies added, deleted, renamed, and binary files from one diff run", async () => {
-  const root = await createTempDir("sidediff-statuses-");
+  const root = await createTempDir("branchreview-statuses-");
   await gitInit(root, "main");
   await writeFile(join(root, "mod.txt"), "l1\nl2\nl3\n", "utf8");
   await writeFile(join(root, "del.txt"), "old\n", "utf8");
@@ -97,7 +97,7 @@ test("passes a three-dot revision range to git diff", async () => {
     return { stdout: stdout.length > 0 ? `${stdout}\n` : "", stderr: "" };
   });
 
-  const root = await createTempDir("sidediff-args-");
+  const root = await createTempDir("branchreview-args-");
   await gitInit(root, "main");
   await writeFile(join(root, "a.txt"), "a\n", "utf8");
   await git.exec(root, ["add", "a.txt"]);

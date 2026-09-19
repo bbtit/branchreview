@@ -103,22 +103,22 @@ test("progress counts intersection of changed files and reviewed paths", () => {
 
 test("status bar shows base when overlay is on and off when it is not", () => {
   expect(formatStatusBarText({ overlayActive: true, base: "origin/main", dirty: false })).toBe(
-    "SideDiff: origin/main",
+    "BranchReview: origin/main",
   );
   expect(formatStatusBarText({ overlayActive: false, base: "origin/main", dirty: false })).toBe(
-    "SideDiff: off",
+    "BranchReview: off",
   );
 });
 
 test("status bar mentions local changes while overlay is on", () => {
   expect(formatStatusBarText({ overlayActive: true, base: "origin/main", dirty: true })).toBe(
-    "SideDiff: origin/main · local changes",
+    "BranchReview: origin/main · local changes",
   );
 });
 
 test("status bar stays plain off because dirtiness is not tracked then", () => {
   expect(formatStatusBarText({ overlayActive: false, base: "origin/main", dirty: true })).toBe(
-    "SideDiff: off",
+    "BranchReview: off",
   );
 });
 

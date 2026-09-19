@@ -1,6 +1,6 @@
 # VS Code Extension: Codebase-aware PR Review
 
-> **製品名:** SideDiff（`sidediff`）  
+> **製品名:** BranchReview（`branchreview`）  
 > **実装時の決定ログ:** [`decisions.md`](./decisions.md)（grilling で確定した判断。コマンド名などはそちらを優先）
 
 ## 1. Goal

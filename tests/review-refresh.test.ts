@@ -35,11 +35,11 @@ function numberedLines(prefix: string, count: number): string[] {
 
 /** main: a.ts + src/b.ts; feature/demo changes a.ts line 3 and appends b.ts line 11. */
 async function createReviewRepo(): Promise<{ root: string; fileA: string; fileB: string }> {
-  const root = await realpath(await mkdtemp(join(tmpdir(), "sidediff-refresh-")));
+  const root = await realpath(await mkdtemp(join(tmpdir(), "branchreview-refresh-")));
   registerCleanup(() => rm(root, { recursive: true, force: true }));
   await plainGit.exec(root, ["init", "-b", "main"]);
-  await plainGit.exec(root, ["config", "user.email", "sidediff@example.com"]);
-  await plainGit.exec(root, ["config", "user.name", "SideDiff Test"]);
+  await plainGit.exec(root, ["config", "user.email", "branchreview@example.com"]);
+  await plainGit.exec(root, ["config", "user.name", "BranchReview Test"]);
   await mkdir(join(root, "src"));
   const fileA = join(root, "a.ts");
   const fileB = join(root, "src", "b.ts");

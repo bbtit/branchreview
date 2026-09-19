@@ -32,8 +32,8 @@ async function commitAll(root: string, message: string): Promise<string> {
 async function createRepo(prefix: string): Promise<{ root: string; fileA: string; fileB: string }> {
   const root = await createTempDir(prefix);
   await git.exec(root, ["init", "-b", "main"]);
-  await git.exec(root, ["config", "user.email", "sidediff@example.com"]);
-  await git.exec(root, ["config", "user.name", "SideDiff Test"]);
+  await git.exec(root, ["config", "user.email", "branchreview@example.com"]);
+  await git.exec(root, ["config", "user.name", "BranchReview Test"]);
   await mkdir(join(root, "src"));
   const fileA = join(root, "a.ts");
   const fileB = join(root, "src", "b.ts");
@@ -53,7 +53,7 @@ function createRecordingCache(): { cache: GitContextCache; gitRuns: () => number
 }
 
 test("switches between files of a known repository without running Git", async () => {
-  const { root, fileA, fileB } = await createRepo("sidediff-cache-warm-");
+  const { root, fileA, fileB } = await createRepo("branchreview-cache-warm-");
   const { cache, gitRuns } = createRecordingCache();
 
   await cache.getContextForPath(fileA);
@@ -70,7 +70,7 @@ test("switches between files of a known repository without running Git", async (
 });
 
 test("shares one Git run between lookups that start together", async () => {
-  const { fileA } = await createRepo("sidediff-cache-concurrent-");
+  const { fileA } = await createRepo("branchreview-cache-concurrent-");
   const { cache, gitRuns } = createRecordingCache();
 
   const contexts = await Promise.all([
@@ -85,7 +85,7 @@ test("shares one Git run between lookups that start together", async () => {
 });
 
 test("shows a new commit once repository heads are invalidated", async () => {
-  const { root, fileA } = await createRepo("sidediff-cache-commit-");
+  const { root, fileA } = await createRepo("branchreview-cache-commit-");
   const { cache } = createRecordingCache();
   const before = await cache.getContextForPath(fileA);
 
@@ -98,7 +98,7 @@ test("shows a new commit once repository heads are invalidated", async () => {
 });
 
 test("follows a branch checkout and a detached HEAD after invalidation", async () => {
-  const { root, fileA } = await createRepo("sidediff-cache-checkout-");
+  const { root, fileA } = await createRepo("branchreview-cache-checkout-");
   const { cache } = createRecordingCache();
   await cache.getContextForPath(fileA);
 
@@ -116,7 +116,7 @@ test("follows a branch checkout and a detached HEAD after invalidation", async (
 });
 
 test("reads Git directly when a fresh context is requested", async () => {
-  const { root, fileA } = await createRepo("sidediff-cache-fresh-");
+  const { root, fileA } = await createRepo("branchreview-cache-fresh-");
   const { cache } = createRecordingCache();
   await cache.getContextForPath(fileA);
 
@@ -128,7 +128,7 @@ test("reads Git directly when a fresh context is requested", async () => {
 });
 
 test("remembers a directory outside any repository until invalidation", async () => {
-  const dir = await createTempDir("sidediff-cache-nongit-");
+  const dir = await createTempDir("branchreview-cache-nongit-");
   const file = join(dir, "alone.txt");
   await writeFile(file, "no git\n", "utf8");
   const { cache, gitRuns } = createRecordingCache();
@@ -138,8 +138,8 @@ test("remembers a directory outside any repository until invalidation", async ()
   expect(gitRuns()).toBe(1);
 
   await git.exec(dir, ["init", "-b", "main"]);
-  await git.exec(dir, ["config", "user.email", "sidediff@example.com"]);
-  await git.exec(dir, ["config", "user.name", "SideDiff Test"]);
+  await git.exec(dir, ["config", "user.email", "branchreview@example.com"]);
+  await git.exec(dir, ["config", "user.name", "BranchReview Test"]);
   await commitAll(dir, "init");
   cache.invalidateRepositoryHeads();
 

@@ -1,10 +1,10 @@
-# SideDiff
+# BranchReview
 
 _日本語: [README.ja.md](./README.ja.md)_
 
 **Diff is metadata, not the document.**
 
-Review a pull request without leaving your codebase. SideDiff keeps the branch open in the **normal editor** — IntelliSense, go-to-definition, find-references, your own extensions, all of it — and paints the diff on top as gutter marks and hovers.
+Review a pull request without leaving your codebase. BranchReview keeps the branch open in the **normal editor** — IntelliSense, go-to-definition, find-references, your own extensions, all of it — and paints the diff on top as gutter marks and hovers.
 
 It never opens a side-by-side Diff Editor.
 
@@ -12,7 +12,7 @@ It never opens a side-by-side Diff Editor.
 
 A Diff Editor shows two columns of text. It cannot tell you who calls the function you just changed, or what the type on line 40 actually is, because the thing you are reading is not your project — it is a snapshot in a scratch buffer.
 
-SideDiff turns that around. You read the real file, in the real project, and the diff rides along as metadata in the gutter. Reviewing stays a codebase activity.
+BranchReview turns that around. You read the real file, in the real project, and the diff rides along as metadata in the gutter. Reviewing stays a codebase activity.
 
 ## Features
 
@@ -28,9 +28,9 @@ SideDiff turns that around. You read the real file, in the real project, and the
 
 ### 1. Start a review
 
-Check out the branch you want to review. Then open the Command Palette (`Ctrl+Shift+P`, macOS `Cmd+Shift+P`), run **`SideDiff: Set Base`**, and pick what to compare against — usually `main` or `origin/main`, but any branch, tag, or commit works.
+Check out the branch you want to review. Then open the Command Palette (`Ctrl+Shift+P`, macOS `Cmd+Shift+P`), run **`BranchReview: Set Base`**, and pick what to compare against — usually `main` or `origin/main`, but any branch, tag, or commit works.
 
-That is the whole setup. The status bar switches from `SideDiff: off` to `SideDiff: main`.
+That is the whole setup. The status bar switches from `BranchReview: off` to `BranchReview: main`.
 
 ### 2. Read the code
 
@@ -50,7 +50,7 @@ Because this is your real file in your real project, everything else still works
 
 `Alt+]` goes to the next change, `Alt+[` to the previous one — **across files**, wrapping from the last change back to the first. Jumping into a file you have not opened yet just opens it normally.
 
-The activity bar **SideDiff → Changes** lists every changed file with its `+n -n`. Click a file to open it at its changes.
+The activity bar **BranchReview → Changes** lists every changed file with its `+n -n`. Click a file to open it at its changes.
 
 ### 4. Keep track of what you have read
 
@@ -60,22 +60,22 @@ Progress is remembered per repository, base, and branch — so when new commits 
 
 ### 5. Finish, or come back later
 
-**`SideDiff: Stop Review`** turns the overlay off but keeps the base, so **`Resume Review`** picks it straight back up — including after a window reload. **`Clear Base`** forgets the base and the reviewed progress.
+**`BranchReview: Stop Review`** turns the overlay off but keeps the base, so **`Resume Review`** picks it straight back up — including after a window reload. **`Clear Base`** forgets the base and the reviewed progress.
 
-While a review is on, the status bar reads `SideDiff: <base>`, with `· local changes` appended when your working tree is dirty — so you always know the gutter is showing the commit range and not your own uncommitted edits.
+While a review is on, the status bar reads `BranchReview: <base>`, with `· local changes` appended when your working tree is dirty — so you always know the gutter is showing the commit range and not your own uncommitted edits.
 
 ## Commands
 
-| Command                                                   | What it does                                                  |
-| --------------------------------------------------------- | ------------------------------------------------------------- |
-| `SideDiff: Set Base`                                      | Pick the revision to compare against and start the review     |
-| `SideDiff: Resume Review`                                 | Restart the review with the remembered base                   |
-| `SideDiff: Stop Review`                                   | Turn the overlay off, keep the base for later                 |
-| `SideDiff: Clear Base`                                    | Forget the base and the reviewed progress                     |
-| `SideDiff: Next Change` / `Previous Change`               | Move to the next / previous hunk, across files                |
-| `SideDiff: Mark as Reviewed` / `Mark as Unreviewed`       | Toggle a file's reviewed state from the Changes view          |
-| `SideDiff: Clear All Review Progress for This Repository` | Drop reviewed progress for every base and branch in this repo |
-| `SideDiff: Show Git Context`                              | Show the repository root, branch, and HEAD (debugging)        |
+| Command                                                       | What it does                                                  |
+| ------------------------------------------------------------- | ------------------------------------------------------------- |
+| `BranchReview: Set Base`                                      | Pick the revision to compare against and start the review     |
+| `BranchReview: Resume Review`                                 | Restart the review with the remembered base                   |
+| `BranchReview: Stop Review`                                   | Turn the overlay off, keep the base for later                 |
+| `BranchReview: Clear Base`                                    | Forget the base and the reviewed progress                     |
+| `BranchReview: Next Change` / `Previous Change`               | Move to the next / previous hunk, across files                |
+| `BranchReview: Mark as Reviewed` / `Mark as Unreviewed`       | Toggle a file's reviewed state from the Changes view          |
+| `BranchReview: Clear All Review Progress for This Repository` | Drop reviewed progress for every base and branch in this repo |
+| `BranchReview: Show Git Context`                              | Show the repository root, branch, and HEAD (debugging)        |
 
 ## Keybindings
 

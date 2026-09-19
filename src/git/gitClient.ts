@@ -50,7 +50,7 @@ export class GitError extends Error {
   }
 }
 
-/** Git printed more than SideDiff will buffer; callers explain this to the user. */
+/** Git printed more than BranchReview will buffer; callers explain this to the user. */
 export class GitOutputTooLargeError extends GitError {
   readonly limitBytes: number;
 

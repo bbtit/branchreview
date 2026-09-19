@@ -52,7 +52,7 @@ const EDITOR_CHANGE_DEBOUNCE_MS = 10;
 const SAVE_DEBOUNCE_MS = 200;
 
 /**
- * Owns SideDiff review ON/OFF, base persistence, status bar, branch watch,
+ * Owns BranchReview review ON/OFF, base persistence, status bar, branch watch,
  * gutter decorations, Changes Tree, and change navigation on the normal editor.
  */
 export class ReviewManager implements vscode.Disposable {
@@ -92,7 +92,7 @@ export class ReviewManager implements vscode.Disposable {
     this.gutters = new GutterDecorations(context.extensionUri);
     this.changesTree = new ChangesTreeProvider();
     this.statusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
-    this.statusBar.command = "sidediff.setBase";
+    this.statusBar.command = "branchreview.setBase";
     this.statusBar.show();
     this.scheduleHeadChangeCheck = debounce(() => {
       void this.onPossibleHeadChange();
@@ -182,7 +182,7 @@ export class ReviewManager implements vscode.Disposable {
     ];
 
     const picked = await vscode.window.showQuickPick(items, {
-      title: "SideDiff: Set Base",
+      title: "BranchReview: Set Base",
       placeHolder: "Compare current branch to…",
       matchOnDescription: true,
     });
@@ -193,7 +193,7 @@ export class ReviewManager implements vscode.Disposable {
     let revision = picked.label;
     if (picked.label === ENTER_REVISION_LABEL) {
       const input = await vscode.window.showInputBox({
-        title: "SideDiff: Set Base",
+        title: "BranchReview: Set Base",
         prompt: "Git revision (branch, tag, or commit)",
         value: stored.base,
         placeHolder: "origin/main",
@@ -216,7 +216,7 @@ export class ReviewManager implements vscode.Disposable {
     const stored = this.getPersisted(gitContext.root);
     if (!stored.base) {
       void vscode.window.showWarningMessage(
-        "SideDiff: no base remembered for this repository. Use Set Base first.",
+        "BranchReview: no base remembered for this repository. Use Set Base first.",
       );
       return;
     }
@@ -227,13 +227,13 @@ export class ReviewManager implements vscode.Disposable {
   async stopReview(): Promise<void> {
     const gitContext = await this.resolveActiveGitContext();
     if (!gitContext) {
-      void vscode.window.showWarningMessage("SideDiff: open a file inside a Git repository.");
+      void vscode.window.showWarningMessage("BranchReview: open a file inside a Git repository.");
       return;
     }
 
     const runtime = this.getRuntime(gitContext.root);
     if (!runtime.overlayActive) {
-      void vscode.window.showInformationMessage("SideDiff: review is already off.");
+      void vscode.window.showInformationMessage("BranchReview: review is already off.");
       await this.refreshStatusBar();
       return;
     }
@@ -243,7 +243,7 @@ export class ReviewManager implements vscode.Disposable {
     this.gutters.clearAll();
     this.lastSeenHead.delete(gitContext.root);
     void vscode.window.showInformationMessage(
-      `SideDiff: stopped (base ${this.getPersisted(gitContext.root).base ?? "none"} kept).`,
+      `BranchReview: stopped (base ${this.getPersisted(gitContext.root).base ?? "none"} kept).`,
     );
     await this.refreshStatusBar();
     await this.refreshChangesTree();
@@ -252,13 +252,13 @@ export class ReviewManager implements vscode.Disposable {
   async clearBase(): Promise<void> {
     const gitContext = await this.resolveActiveGitContext();
     if (!gitContext) {
-      void vscode.window.showWarningMessage("SideDiff: open a file inside a Git repository.");
+      void vscode.window.showWarningMessage("BranchReview: open a file inside a Git repository.");
       return;
     }
 
     const previous = this.getPersisted(gitContext.root);
     if (!previous.base && Object.keys(previous.reviewedBySession).length === 0) {
-      void vscode.window.showInformationMessage("SideDiff: no base to clear.");
+      void vscode.window.showInformationMessage("BranchReview: no base to clear.");
       return;
     }
 
@@ -268,7 +268,7 @@ export class ReviewManager implements vscode.Disposable {
     this.gutters.clearAll();
     this.lastSeenHead.delete(gitContext.root);
     await this.savePersisted();
-    void vscode.window.showInformationMessage("SideDiff: base cleared.");
+    void vscode.window.showInformationMessage("BranchReview: base cleared.");
     await this.refreshStatusBar();
     await this.refreshChangesTree();
   }
@@ -277,7 +277,7 @@ export class ReviewManager implements vscode.Disposable {
   async clearReviewProgress(): Promise<void> {
     const gitContext = await this.resolveActiveGitContext();
     if (!gitContext) {
-      void vscode.window.showWarningMessage("SideDiff: open a file inside a Git repository.");
+      void vscode.window.showWarningMessage("BranchReview: open a file inside a Git repository.");
       return;
     }
 
@@ -285,7 +285,7 @@ export class ReviewManager implements vscode.Disposable {
     const sessionCount = Object.keys(previous.reviewedBySession).length;
     if (sessionCount === 0) {
       void vscode.window.showInformationMessage(
-        "SideDiff: no review progress in this repository to clear.",
+        "BranchReview: no review progress in this repository to clear.",
       );
       return;
     }
@@ -293,7 +293,7 @@ export class ReviewManager implements vscode.Disposable {
     this.persisted[gitContext.root] = clearReviewedProgress(previous);
     await this.savePersisted();
     void vscode.window.showInformationMessage(
-      `SideDiff: cleared all review progress for this repository (${sessionCount} session${sessionCount === 1 ? "" : "s"}).`,
+      `BranchReview: cleared all review progress for this repository (${sessionCount} session${sessionCount === 1 ? "" : "s"}).`,
     );
     await this.refreshChangesTree();
   }
@@ -323,7 +323,7 @@ export class ReviewManager implements vscode.Disposable {
   async openTreeFile(args: OpenTreeFileArgs): Promise<void> {
     if (args.status === "deleted") {
       void vscode.window.showInformationMessage(
-        `SideDiff: ${args.path} was deleted on this branch.`,
+        `BranchReview: ${args.path} was deleted on this branch.`,
       );
       return;
     }
@@ -334,7 +334,7 @@ export class ReviewManager implements vscode.Disposable {
     try {
       document = await vscode.workspace.openTextDocument(uri);
     } catch {
-      void vscode.window.showWarningMessage(`SideDiff: could not open ${args.path}`);
+      void vscode.window.showWarningMessage(`BranchReview: could not open ${args.path}`);
       return;
     }
 
@@ -368,7 +368,7 @@ export class ReviewManager implements vscode.Disposable {
 
   private async applyBase(gitContext: GitContext, revision: string): Promise<void> {
     if (!revision) {
-      void vscode.window.showErrorMessage("SideDiff: base revision is empty.");
+      void vscode.window.showErrorMessage("BranchReview: base revision is empty.");
       return;
     }
 
@@ -376,7 +376,7 @@ export class ReviewManager implements vscode.Disposable {
     if (!exists) {
       // D17: reject invalid base; keep previous remembered base.
       void vscode.window.showErrorMessage(
-        `SideDiff: revision "${revision}" not found. Base unchanged.`,
+        `BranchReview: revision "${revision}" not found. Base unchanged.`,
       );
       await this.refreshStatusBar();
       return;
@@ -384,7 +384,7 @@ export class ReviewManager implements vscode.Disposable {
 
     if (!gitContext.branch) {
       void vscode.window.showErrorMessage(
-        "SideDiff: check out a branch before starting a review (detached HEAD is not supported).",
+        "BranchReview: check out a branch before starting a review (detached HEAD is not supported).",
       );
       return;
     }
@@ -402,7 +402,7 @@ export class ReviewManager implements vscode.Disposable {
     this.diffPipeline.clearCache(gitContext.root);
     this.lastSeenHead.set(gitContext.root, gitContext.head);
     this.ensureHeadWatcher(gitContext.root);
-    void vscode.window.showInformationMessage(`SideDiff: reviewing against ${revision}`);
+    void vscode.window.showInformationMessage(`BranchReview: reviewing against ${revision}`);
     await this.refreshStatusBar();
     await this.refreshGutters();
     await this.refreshChangesTree();
@@ -413,14 +413,14 @@ export class ReviewManager implements vscode.Disposable {
     const gitContext = await this.resolveActiveGitContext({ fresh: true });
     if (!gitContext) {
       void vscode.window.showWarningMessage(
-        `SideDiff: open a file inside a Git repository to ${action}.`,
+        `BranchReview: open a file inside a Git repository to ${action}.`,
       );
       return undefined;
     }
     if (gitContext.detached || !gitContext.reviewable) {
       // D15
       void vscode.window.showErrorMessage(
-        "SideDiff: check out a branch before starting a review (detached HEAD is not supported).",
+        "BranchReview: check out a branch before starting a review (detached HEAD is not supported).",
       );
       return undefined;
     }
@@ -517,7 +517,7 @@ export class ReviewManager implements vscode.Disposable {
     this.gutters.clearAll();
     this.lastSeenHead.delete(repoRoot);
     void vscode.window.showInformationMessage(
-      `SideDiff: stopped after branch change (base ${this.getPersisted(repoRoot).base ?? "none"} kept).`,
+      `BranchReview: stopped after branch change (base ${this.getPersisted(repoRoot).base ?? "none"} kept).`,
     );
     return true;
   }
@@ -572,7 +572,7 @@ export class ReviewManager implements vscode.Disposable {
     const branch = gitContext.branch;
     if (!branch) {
       void vscode.window.showErrorMessage(
-        "SideDiff: check out a branch before updating review status (detached HEAD is not supported).",
+        "BranchReview: check out a branch before updating review status (detached HEAD is not supported).",
       );
       return;
     }
@@ -580,7 +580,7 @@ export class ReviewManager implements vscode.Disposable {
     const target = resolveMarkTarget(args);
     if (target?.repoRoot && target.repoRoot !== gitContext.root) {
       void vscode.window.showWarningMessage(
-        "SideDiff: that file belongs to a different repository than the active review.",
+        "BranchReview: that file belongs to a different repository than the active review.",
       );
       return;
     }
@@ -588,7 +588,7 @@ export class ReviewManager implements vscode.Disposable {
     const path = target?.path ?? this.cursorInRepo(gitContext.root)?.path;
     if (!path) {
       void vscode.window.showWarningMessage(
-        "SideDiff: open a changed file (or use the Changes tree) to update review status.",
+        "BranchReview: open a changed file (or use the Changes tree) to update review status.",
       );
       return;
     }
@@ -599,7 +599,9 @@ export class ReviewManager implements vscode.Disposable {
       : markPathUnreviewed(previous, base, branch, path);
     await this.savePersisted();
     void vscode.window.showInformationMessage(
-      reviewed ? `SideDiff: marked ${path} as reviewed` : `SideDiff: marked ${path} as unreviewed`,
+      reviewed
+        ? `BranchReview: marked ${path} as reviewed`
+        : `BranchReview: marked ${path} as unreviewed`,
     );
     await this.refreshChangesTree();
   }
@@ -619,7 +621,7 @@ export class ReviewManager implements vscode.Disposable {
 
     const targets = changeTargetsFromFiles(files ?? []);
     if (targets.length === 0) {
-      void vscode.window.showInformationMessage("SideDiff: no changes to navigate.");
+      void vscode.window.showInformationMessage("BranchReview: no changes to navigate.");
       return;
     }
 
@@ -630,7 +632,7 @@ export class ReviewManager implements vscode.Disposable {
         : findPreviousChangeTarget(targets, cursor);
 
     if (!target) {
-      void vscode.window.showInformationMessage("SideDiff: no changes to navigate.");
+      void vscode.window.showInformationMessage("BranchReview: no changes to navigate.");
       return;
     }
 
@@ -645,7 +647,7 @@ export class ReviewManager implements vscode.Disposable {
   ): Promise<{ gitContext: GitContext; base: string } | undefined> {
     const gitContext = await this.resolveActiveGitContext();
     if (!gitContext) {
-      void vscode.window.showWarningMessage("SideDiff: open a file inside a Git repository.");
+      void vscode.window.showWarningMessage("BranchReview: open a file inside a Git repository.");
       return undefined;
     }
 
@@ -657,7 +659,7 @@ export class ReviewManager implements vscode.Disposable {
     const persisted = this.getPersisted(gitContext.root);
     if (!runtime.overlayActive || !persisted.base) {
       void vscode.window.showInformationMessage(
-        `SideDiff: start a review (Set Base or Resume Review) to ${purpose}.`,
+        `BranchReview: start a review (Set Base or Resume Review) to ${purpose}.`,
       );
       return undefined;
     }
@@ -687,7 +689,7 @@ export class ReviewManager implements vscode.Disposable {
     try {
       document = await vscode.workspace.openTextDocument(uri);
     } catch {
-      void vscode.window.showWarningMessage(`SideDiff: could not open ${target.path}`);
+      void vscode.window.showWarningMessage(`BranchReview: could not open ${target.path}`);
       return;
     }
 
@@ -780,7 +782,7 @@ export class ReviewManager implements vscode.Disposable {
   }
 
   /**
-   * Refresh the SideDiff Changes sidebar from cached `base...HEAD`.
+   * Refresh the BranchReview Changes sidebar from cached `base...HEAD`.
    */
   async refreshChangesTree(): Promise<void> {
     const serial = ++this.treeSerial;
@@ -853,7 +855,9 @@ export class ReviewManager implements vscode.Disposable {
       const reason = diffFailureReason(error);
       if (!this.reportedDiffErrors.has(key)) {
         this.reportedDiffErrors.add(key);
-        void vscode.window.showErrorMessage(`SideDiff: could not load ${base}...HEAD — ${reason}`);
+        void vscode.window.showErrorMessage(
+          `BranchReview: could not load ${base}...HEAD — ${reason}`,
+        );
       }
       return { error: reason };
     }
@@ -867,7 +871,7 @@ export class ReviewManager implements vscode.Disposable {
     }
 
     if (!gitContext) {
-      this.statusBar.text = "SideDiff: off";
+      this.statusBar.text = "BranchReview: off";
       this.statusBar.tooltip = "Open a file in a Git repository";
       return;
     }

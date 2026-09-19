@@ -1,10 +1,10 @@
-# SideDiff
+# BranchReview
 
 _English: [README.md](./README.md)_
 
 **差分はメタデータであって、文書ではない。**
 
-SideDiff は、レビュー対象のブランチを普通のエディタで開いたまま、差分を gutter のマークと hover として重ねる VS Code 拡張です。左右に並ぶ Diff Editor は開きません。
+BranchReview は、レビュー対象のブランチを普通のエディタで開いたまま、差分を gutter のマークと hover として重ねる VS Code 拡張です。左右に並ぶ Diff Editor は開きません。
 
 「使い方」の 1〜5 を順に読めば、ひととおり操作できます。その先のコマンド表や制約は、必要になったときに引いてください。
 
@@ -12,15 +12,15 @@ SideDiff は、レビュー対象のブランチを普通のエディタで開�
 
 Diff Editor に映っているのは 2 列のテキストで、あなたのプロジェクトではありません。だから、いま書き換えられた関数を誰が呼んでいるのか、40 行目の変数がどの型なのかを、その画面では確かめられません。読んでいる対象が、実体から切り離されたスナップショットだからです。
 
-SideDiff はここを裏返します。読むのは実際のプロジェクトにある実際のファイルで、差分はその上に重なるメタデータです。レビューの最中も、定義へ飛び、参照を探し、リネームし、テストを走らせられます。
+BranchReview はここを裏返します。読むのは実際のプロジェクトにある実際のファイルで、差分はその上に重なるメタデータです。レビューの最中も、定義へ飛び、参照を探し、リネームし、テストを走らせられます。
 
 ## 使い方
 
 ### 1. base を選ぶとレビューが始まる
 
-レビューしたいブランチを checkout してから、コマンドパレット（`Ctrl+Shift+P`、macOS は `Cmd+Shift+P`）で **`SideDiff: Set Base`** を実行し、比較相手を選びます。ふつうは `main` や `origin/main` ですが、タグでもコミットでも構いません。
+レビューしたいブランチを checkout してから、コマンドパレット（`Ctrl+Shift+P`、macOS は `Cmd+Shift+P`）で **`BranchReview: Set Base`** を実行し、比較相手を選びます。ふつうは `main` や `origin/main` ですが、タグでもコミットでも構いません。
 
-準備はこれだけです。ステータスバーの表示が `SideDiff: off` から `SideDiff: main` に変わります。
+準備はこれだけです。ステータスバーの表示が `BranchReview: off` から `BranchReview: main` に変わります。
 
 ### 2. gutter のマークが変更行を示す
 
@@ -38,7 +38,7 @@ SideDiff はここを裏返します。読むのは実際のプロジェクト�
 
 `Alt+]` で次の変更、`Alt+[` で前の変更に移動します。移動は**ファイルをまたぎます**。最後の変更まで行くと先頭に戻ります。まだ開いていないファイルへ飛んだときは、そのファイルが普通に開きます。
 
-アクティビティバーの **SideDiff → Changes** には、変更されたファイルが `+n -n` 付きで並びます。クリックすれば、そのファイルが開きます。
+アクティビティバーの **BranchReview → Changes** には、変更されたファイルが `+n -n` 付きで並びます。クリックすれば、そのファイルが開きます。
 
 ### 4. 読み終えたファイルに印を付ける
 
@@ -48,22 +48,22 @@ Changes ビューでファイルを右クリックし、**Mark as Reviewed** を
 
 ### 5. 中断しても base は残る
 
-**`SideDiff: Stop Review`** で overlay を止めます。base は覚えたままなので、**`Resume Review`** で続きから再開できます。ウィンドウを再読み込みしたあとでも同じです。base ごと捨てるときは **`Clear Base`** を使います。このときは進捗も一緒に消えます。
+**`BranchReview: Stop Review`** で overlay を止めます。base は覚えたままなので、**`Resume Review`** で続きから再開できます。ウィンドウを再読み込みしたあとでも同じです。base ごと捨てるときは **`Clear Base`** を使います。このときは進捗も一緒に消えます。
 
-レビュー中、ステータスバーには `SideDiff: <base>` が出ます。作業ツリーに未コミットの変更があるときは、末尾に `· local changes` が付きます。gutter が映しているのがコミット範囲であって手元の編集ではないことを、ここで区別できます。
+レビュー中、ステータスバーには `BranchReview: <base>` が出ます。作業ツリーに未コミットの変更があるときは、末尾に `· local changes` が付きます。gutter が映しているのがコミット範囲であって手元の編集ではないことを、ここで区別できます。
 
 ## コマンド
 
-| コマンド                                                  | 何をするか                                              |
-| --------------------------------------------------------- | ------------------------------------------------------- |
-| `SideDiff: Set Base`                                      | 比較相手を選んでレビューを始める                        |
-| `SideDiff: Resume Review`                                 | 覚えている base でレビューを再開する                    |
-| `SideDiff: Stop Review`                                   | overlay を止める。base は残す                           |
-| `SideDiff: Clear Base`                                    | base と進捗を捨てる                                     |
-| `SideDiff: Next Change` / `Previous Change`               | ファイルをまたいで次 / 前の変更へ移動する               |
-| `SideDiff: Mark as Reviewed` / `Mark as Unreviewed`       | Changes ビューでファイルの既読・未読を切り替える        |
-| `SideDiff: Clear All Review Progress for This Repository` | このリポジトリの進捗を全 base・全ブランチ分まとめて消す |
-| `SideDiff: Show Git Context`                              | リポジトリの root・ブランチ・HEAD を表示する（調査用）  |
+| コマンド                                                      | 何をするか                                              |
+| ------------------------------------------------------------- | ------------------------------------------------------- |
+| `BranchReview: Set Base`                                      | 比較相手を選んでレビューを始める                        |
+| `BranchReview: Resume Review`                                 | 覚えている base でレビューを再開する                    |
+| `BranchReview: Stop Review`                                   | overlay を止める。base は残す                           |
+| `BranchReview: Clear Base`                                    | base と進捗を捨てる                                     |
+| `BranchReview: Next Change` / `Previous Change`               | ファイルをまたいで次 / 前の変更へ移動する               |
+| `BranchReview: Mark as Reviewed` / `Mark as Unreviewed`       | Changes ビューでファイルの既読・未読を切り替える        |
+| `BranchReview: Clear All Review Progress for This Repository` | このリポジトリの進捗を全 base・全ブランチ分まとめて消す |
+| `BranchReview: Show Git Context`                              | リポジトリの root・ブランチ・HEAD を表示する（調査用）  |
 
 ## キーバインド
 
@@ -104,7 +104,7 @@ pnpm build   # dist/extension.cjs にバンドル
 
 ## 困ったときは
 
-動かない、挙動がおかしい、こういう機能が欲しい。どれも [GitHub issues](https://github.com/bbtit/sidediff/issues) で受け付けています。
+動かない、挙動がおかしい、こういう機能が欲しい。どれも [GitHub issues](https://github.com/bbtit/branchreview/issues) で受け付けています。
 
 ## ライセンス
 

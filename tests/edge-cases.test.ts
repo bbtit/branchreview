@@ -35,11 +35,11 @@ type EdgeCaseRepo = {
  * edit that exist only in the working tree.
  */
 async function createEdgeCaseRepo(): Promise<EdgeCaseRepo> {
-  const root = await realpath(await mkdtemp(join(tmpdir(), "sidediff-edges-")));
+  const root = await realpath(await mkdtemp(join(tmpdir(), "branchreview-edges-")));
   registerCleanup(() => rm(root, { recursive: true, force: true }));
   await plainGit.exec(root, ["init", "-b", "main"]);
-  await plainGit.exec(root, ["config", "user.email", "sidediff@example.com"]);
-  await plainGit.exec(root, ["config", "user.name", "SideDiff Test"]);
+  await plainGit.exec(root, ["config", "user.email", "branchreview@example.com"]);
+  await plainGit.exec(root, ["config", "user.name", "BranchReview Test"]);
   await writeFile(join(root, "keep.txt"), "keep1\nkeep2\nkeep3\n", "utf8");
   await writeFile(join(root, "del.txt"), "gone1\ngone2\n", "utf8");
   await writeFile(join(root, "ren-old.txt"), "ren1\nren2\nren3\nren4\nren5\n", "utf8");
@@ -142,7 +142,7 @@ test(
     // Line 2 changed in the commit; line 4 exists only in the working tree.
     expect(markedLines(kept, "change")).toEqual([2]);
     expect(treeRows().some((row) => row.label.includes("untracked.txt"))).toBe(false);
-    expect(statusBarText()).toBe("SideDiff: main · local changes");
+    expect(statusBarText()).toBe("BranchReview: main · local changes");
   },
   TIMEOUT_MS,
 );
@@ -160,11 +160,11 @@ type TrickyNameRepo = {
  * a delete, an add, and a binary change carrying the same kinds of names.
  */
 async function createTrickyNameRepo(): Promise<TrickyNameRepo> {
-  const root = await realpath(await mkdtemp(join(tmpdir(), "sidediff-names-")));
+  const root = await realpath(await mkdtemp(join(tmpdir(), "branchreview-names-")));
   registerCleanup(() => rm(root, { recursive: true, force: true }));
   await plainGit.exec(root, ["init", "-b", "main"]);
-  await plainGit.exec(root, ["config", "user.email", "sidediff@example.com"]);
-  await plainGit.exec(root, ["config", "user.name", "SideDiff Test"]);
+  await plainGit.exec(root, ["config", "user.email", "branchreview@example.com"]);
+  await plainGit.exec(root, ["config", "user.name", "BranchReview Test"]);
   await writeFile(join(root, "sp ace.txt"), "l1\nl2\n", "utf8");
   await writeFile(join(root, "日本語.txt"), "l1\nl2\n", "utf8");
   await writeFile(join(root, 'qu"ote.txt'), "l1\nl2\n", "utf8");

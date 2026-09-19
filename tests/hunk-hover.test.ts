@@ -17,7 +17,7 @@ test("formats a change hunk as a diff fence with old and new lines", () => {
 
   expect(formatHunkHoverMarkdown(hunk)).toBe(
     [
-      "**SideDiff**",
+      "**BranchReview**",
       "",
       "```diff",
       "-const account = user.profile;",

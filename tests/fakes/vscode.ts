@@ -1,6 +1,6 @@
 /**
  * In-memory stand-in for the `vscode` module so ReviewManager can run under Vitest
- * (aliased in vite.config.ts). Implements only what SideDiff touches.
+ * (aliased in vite.config.ts). Implements only what BranchReview touches.
  */
 
 type Listener<T> = (event: T) => void;

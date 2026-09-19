@@ -17,7 +17,7 @@ export type GitContext = {
   /** True when HEAD is detached. */
   detached: boolean;
   /**
-   * Whether a SideDiff review session may start.
+   * Whether a BranchReview review session may start.
    * False when detached (D15); start UI refusal is MVP-03.
    */
   reviewable: boolean;

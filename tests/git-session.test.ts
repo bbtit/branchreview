@@ -24,8 +24,8 @@ async function createTempDir(prefix: string): Promise<string> {
 
 async function gitInitWithCommit(root: string, branch = "main"): Promise<string> {
   await git.exec(root, ["init", "-b", branch]);
-  await git.exec(root, ["config", "user.email", "sidediff@example.com"]);
-  await git.exec(root, ["config", "user.name", "SideDiff Test"]);
+  await git.exec(root, ["config", "user.email", "branchreview@example.com"]);
+  await git.exec(root, ["config", "user.name", "BranchReview Test"]);
   await writeFile(join(root, "readme.txt"), "hello\n", "utf8");
   await git.exec(root, ["add", "readme.txt"]);
   await git.exec(root, ["commit", "-m", "init"]);
@@ -33,7 +33,7 @@ async function gitInitWithCommit(root: string, branch = "main"): Promise<string>
 }
 
 test("accepts existing revisions and rejects unknown ones", async () => {
-  const root = await createTempDir("sidediff-rev-");
+  const root = await createTempDir("branchreview-rev-");
   await gitInitWithCommit(root, "main");
   await git.exec(root, ["branch", "feature/x"]);
 
@@ -43,7 +43,7 @@ test("accepts existing revisions and rejects unknown ones", async () => {
 });
 
 test("lists local branch names for Set Base candidates", async () => {
-  const root = await createTempDir("sidediff-refs-");
+  const root = await createTempDir("branchreview-refs-");
   await gitInitWithCommit(root, "main");
   await git.exec(root, ["branch", "feature/x"]);
 
@@ -53,7 +53,7 @@ test("lists local branch names for Set Base candidates", async () => {
 });
 
 test("reports a clean tree as not dirty and a modified file as dirty", async () => {
-  const root = await createTempDir("sidediff-dirty-");
+  const root = await createTempDir("branchreview-dirty-");
   await gitInitWithCommit(root, "main");
 
   expect(await git.isWorkingTreeDirty(root)).toBe(false);

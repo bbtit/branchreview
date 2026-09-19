@@ -17,11 +17,11 @@ afterEach(async () => {
 });
 
 test("says the diff is too large instead of failing with a buffer error", async () => {
-  const root = await realpath(await mkdtemp(join(tmpdir(), "sidediff-toolarge-")));
+  const root = await realpath(await mkdtemp(join(tmpdir(), "branchreview-toolarge-")));
   cleanups.push(root);
   await git.exec(root, ["init", "-b", "main"]);
-  await git.exec(root, ["config", "user.email", "sidediff@example.com"]);
-  await git.exec(root, ["config", "user.name", "SideDiff Test"]);
+  await git.exec(root, ["config", "user.email", "branchreview@example.com"]);
+  await git.exec(root, ["config", "user.name", "BranchReview Test"]);
   await writeFile(join(root, "big.txt"), "base\n", "utf8");
   await git.exec(root, ["add", "big.txt"]);
   await git.exec(root, ["commit", "-m", "base"]);
@@ -42,11 +42,11 @@ test("says the diff is too large instead of failing with a buffer error", async 
 });
 
 test("stays under the cap for an ordinary diff", async () => {
-  const root = await realpath(await mkdtemp(join(tmpdir(), "sidediff-undercap-")));
+  const root = await realpath(await mkdtemp(join(tmpdir(), "branchreview-undercap-")));
   cleanups.push(root);
   await git.exec(root, ["init", "-b", "main"]);
-  await git.exec(root, ["config", "user.email", "sidediff@example.com"]);
-  await git.exec(root, ["config", "user.name", "SideDiff Test"]);
+  await git.exec(root, ["config", "user.email", "branchreview@example.com"]);
+  await git.exec(root, ["config", "user.name", "BranchReview Test"]);
   await writeFile(join(root, "small.txt"), "one\n", "utf8");
   await git.exec(root, ["add", "small.txt"]);
   await git.exec(root, ["commit", "-m", "base"]);

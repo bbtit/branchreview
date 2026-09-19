@@ -9,49 +9,51 @@ export function activate(context: vscode.ExtensionContext): void {
   context.subscriptions.push(reviewManager);
 
   context.subscriptions.push(
-    vscode.commands.registerCommand("sidediff.setBase", () => reviewManager.setBase()),
-    vscode.commands.registerCommand("sidediff.resumeReview", () => reviewManager.resumeReview()),
-    vscode.commands.registerCommand("sidediff.stopReview", () => reviewManager.stopReview()),
-    vscode.commands.registerCommand("sidediff.clearBase", () => reviewManager.clearBase()),
-    vscode.commands.registerCommand("sidediff.clearReviewProgress", () =>
+    vscode.commands.registerCommand("branchreview.setBase", () => reviewManager.setBase()),
+    vscode.commands.registerCommand("branchreview.resumeReview", () =>
+      reviewManager.resumeReview(),
+    ),
+    vscode.commands.registerCommand("branchreview.stopReview", () => reviewManager.stopReview()),
+    vscode.commands.registerCommand("branchreview.clearBase", () => reviewManager.clearBase()),
+    vscode.commands.registerCommand("branchreview.clearReviewProgress", () =>
       reviewManager.clearReviewProgress(),
     ),
-    vscode.commands.registerCommand("sidediff.nextChange", () => reviewManager.nextChange()),
-    vscode.commands.registerCommand("sidediff.previousChange", () =>
+    vscode.commands.registerCommand("branchreview.nextChange", () => reviewManager.nextChange()),
+    vscode.commands.registerCommand("branchreview.previousChange", () =>
       reviewManager.previousChange(),
     ),
-    vscode.commands.registerCommand("sidediff.openTreeFile", (args) =>
+    vscode.commands.registerCommand("branchreview.openTreeFile", (args) =>
       reviewManager.openTreeFile(args),
     ),
-    vscode.commands.registerCommand("sidediff.markReviewed", (args) =>
+    vscode.commands.registerCommand("branchreview.markReviewed", (args) =>
       reviewManager.markReviewed(args),
     ),
-    vscode.commands.registerCommand("sidediff.markUnreviewed", (args) =>
+    vscode.commands.registerCommand("branchreview.markUnreviewed", (args) =>
       reviewManager.markUnreviewed(args),
     ),
-    vscode.commands.registerCommand("sidediff.showGitContext", async () => {
+    vscode.commands.registerCommand("branchreview.showGitContext", async () => {
       const editor = vscode.window.activeTextEditor;
       if (!editor) {
         void vscode.window.showWarningMessage(
-          "SideDiff: open a file in the editor to resolve Git context.",
+          "BranchReview: open a file in the editor to resolve Git context.",
         );
         return;
       }
 
       if (editor.document.uri.scheme !== "file") {
-        void vscode.window.showWarningMessage("SideDiff: Git context requires a file on disk.");
+        void vscode.window.showWarningMessage("BranchReview: Git context requires a file on disk.");
         return;
       }
 
       const gitContext = await getGitContextForFile(git, editor.document.uri.fsPath);
       if (!gitContext) {
         void vscode.window.showWarningMessage(
-          "SideDiff: this file is not inside a Git repository.",
+          "BranchReview: this file is not inside a Git repository.",
         );
         return;
       }
 
-      void vscode.window.showInformationMessage(`SideDiff: ${formatGitContext(gitContext)}`);
+      void vscode.window.showInformationMessage(`BranchReview: ${formatGitContext(gitContext)}`);
     }),
   );
 }

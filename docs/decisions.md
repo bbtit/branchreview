@@ -1,8 +1,8 @@
-# SideDiff — Product Decisions
+# BranchReview — Product Decisions
 
 Grilling で確定した判断。要件の正本は [`requirements.md`](./requirements.md)。本ドキュメントは実装時に参照する決定ログ。
 
-製品名: **SideDiff**（ID: `sidediff`）
+製品名: **BranchReview**（ID: `branchreview`）
 
 中心原則: **Diff is metadata, not the document.**
 
@@ -10,17 +10,17 @@ Grilling で確定した判断。要件の正本は [`requirements.md`](./requir
 
 ## Session lifecycle
 
-| ID  | Decision                                                                                                                                                       |
-| --- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| D1  | base を設定した瞬間から overlay が有効。`Stop Review` / `Clear Base` で消える                                                                                  |
-| D3  | base は workspace ごとに永続化するが、**起動時は overlay OFF**。`Resume Review` または `Set Base` で再開                                                       |
-| D4  | セッション系コマンド: `SideDiff: Set Base` / `SideDiff: Resume Review` / `SideDiff: Stop Review` / `SideDiff: Clear Base`。進捗系は Review status 節（D22 等） |
-| D5  | レビュー中に別ブランチへ checkout したら **自動 Stop**（base 記憶は残す → Resume 可能）                                                                        |
-| D13 | overlay ON のまま同じブランチで HEAD が進んだら（commit / amend / pull 等）、`base...HEAD` を自動再取得して decoration / Tree を更新                           |
-| D15 | **detached HEAD ではレビュー開始不可**（branch に checkout してから、と案内）                                                                                  |
-| D17 | 無効な base（存在しない revision）はエラー表示して overlay を開始しない。前回の有効 base 記憶は触らない                                                        |
-| D14 | `Clear Base` は reviewed 進捗も破棄する                                                                                                                        |
-| D18 | コマンドプレフィックスは製品名で統一: `SideDiff: …`（要件書の `PR Review:` 表記は説明用）                                                                      |
+| ID  | Decision                                                                                                                                                                       |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| D1  | base を設定した瞬間から overlay が有効。`Stop Review` / `Clear Base` で消える                                                                                                  |
+| D3  | base は workspace ごとに永続化するが、**起動時は overlay OFF**。`Resume Review` または `Set Base` で再開                                                                       |
+| D4  | セッション系コマンド: `BranchReview: Set Base` / `BranchReview: Resume Review` / `BranchReview: Stop Review` / `BranchReview: Clear Base`。進捗系は Review status 節（D22 等） |
+| D5  | レビュー中に別ブランチへ checkout したら **自動 Stop**（base 記憶は残す → Resume 可能）                                                                                        |
+| D13 | overlay ON のまま同じブランチで HEAD が進んだら（commit / amend / pull 等）、`base...HEAD` を自動再取得して decoration / Tree を更新                                           |
+| D15 | **detached HEAD ではレビュー開始不可**（branch に checkout してから、と案内）                                                                                                  |
+| D17 | 無効な base（存在しない revision）はエラー表示して overlay を開始しない。前回の有効 base 記憶は触らない                                                                        |
+| D14 | `Clear Base` は reviewed 進捗も破棄する                                                                                                                                        |
+| D18 | コマンドプレフィックスは製品名で統一: `BranchReview: …`（要件書の `PR Review:` 表記は説明用）                                                                                  |
 
 ### Stop vs Clear
 
@@ -84,21 +84,32 @@ Grilling で確定した判断。要件の正本は [`requirements.md`](./requir
 
 ## Review status
 
-| ID  | Decision                                                                                                                                                        |
-| --- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| D10 | reviewed 状態のキーは **`(repo, base, branch名)`**。同じ feature branch 上なら commit が増えても維持。HEAD tip 単位ではリセットしない                           |
-| D22 | `SideDiff: Clear All Review Progress for This Repository` は当該 repo の reviewed 進捗を **全 `(base, branch)` 分** 破棄する。base と overlay ON/OFF は触らない |
+| ID  | Decision                                                                                                                                                            |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| D10 | reviewed 状態のキーは **`(repo, base, branch名)`**。同じ feature branch 上なら commit が増えても維持。HEAD tip 単位ではリセットしない                               |
+| D22 | `BranchReview: Clear All Review Progress for This Repository` は当該 repo の reviewed 進捗を **全 `(base, branch)` 分** 破棄する。base と overlay ON/OFF は触らない |
 
 ---
 
 ## UI chrome
 
-| ID  | Decision                                                                                                                                                                                                         |
-| --- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| D11 | status bar を出す。例: `SideDiff: origin/main` / `SideDiff: off` / `… local changes`。ON/OFF・base・dirty が一目で分かるようにする。dirty は overlay ON のときだけ判定する（OFF 中は `git status` を実行しない） |
-| D16 | 表示名 `SideDiff`、パッケージ ID `sidediff`                                                                                                                                                                      |
-| D20 | パッケージマネージャは **pnpm**（npm / yarn は使わない）。lockfile は `pnpm-lock.yaml` をコミット。VS Code 拡張で必要なら `.npmrc` で hoist を調整してよい                                                       |
-| D21 | 開発ツールチェーンは **VoidZero / Vite+**（`vp` CLI）を正とする。ESLint / Prettier / Jest / webpack は使わない                                                                                                   |
+| ID  | Decision                                                                                                                                                                                                                 |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| D11 | status bar を出す。例: `BranchReview: origin/main` / `BranchReview: off` / `… local changes`。ON/OFF・base・dirty が一目で分かるようにする。dirty は overlay ON のときだけ判定する（OFF 中は `git status` を実行しない） |
+| D16 | 表示名 `BranchReview`、パッケージ ID `branchreview`                                                                                                                                                                      |
+| D20 | パッケージマネージャは **pnpm**（npm / yarn は使わない）。lockfile は `pnpm-lock.yaml` をコミット。VS Code 拡張で必要なら `.npmrc` で hoist を調整してよい                                                               |
+| D21 | 開発ツールチェーンは **VoidZero / Vite+**（`vp` CLI）を正とする。ESLint / Prettier / Jest / webpack は使わない                                                                                                           |
+| D27 | 製品名を **SideDiff → BranchReview** に改名（2026-09-20、初公開前）。拡張 ID は `bbtit.branchreview`                                                                                                                     |
+
+### D27 の根拠（2026-09-20）
+
+初公開の直前に改名した。拡張 ID（`publisher.name`）は**公開後に変更できない**。変えるには別 ID で出し直してインストール数と評価を捨てることになるため、判断できる最後の機会だった。
+
+- **`SideDiff` をやめた理由**: 「Side」が side-by-side を連想させる。この拡張の最も際立った特徴は左右分割の Diff Editor を絶対に開かないことなので、名前が製品の拒否している体験を約束していた
+- **`BranchDiff` を選ばなかった理由**: Open VSX に `Encryptioner.branchdiff`（920 DL）が既にあり、同じブランチレビュー領域で正面衝突する（VS Code Marketplace 側は空いていた）
+- **`BranchReview` にした理由**: 両マーケットで空いており、`Diff` を頭に置かないので「diff 画面へ連れて行かない」という製品の主張と矛盾しない
+
+候補のうち `Baseline`（`dmytroulianov.baseline`）と `Sightline`（`LucidLayer.sightline-extension`）は既存拡張との衝突で除外した。
 
 ### Tooling (D21) — 詳細
 
@@ -132,9 +143,9 @@ Grilling で確定した判断。要件の正本は [`requirements.md`](./requir
 
 ```sh
 pnpm package                      # vp pack → VSIX を作る
-unzip -l sidediff-<version>.vsix  # dist と media だけか確認する
-pnpm dlx @vscode/vsce publish --packagePath sidediff-<version>.vsix  # Marketplace
-pnpm dlx ovsx publish sidediff-<version>.vsix                        # Open VSX
+unzip -l branchreview-<version>.vsix  # dist と media だけか確認する
+pnpm dlx @vscode/vsce publish --packagePath branchreview-<version>.vsix  # Marketplace
+pnpm dlx ovsx publish branchreview-<version>.vsix                        # Open VSX
 ```
 
 npm を経由しないこと（D20 の帰結。2026-09-20 に実際に踏んだ）:
@@ -148,9 +159,10 @@ npm を経由しないこと（D20 の帰結。2026-09-20 に実際に踏んだ�
 
 ## Naming notes
 
-- リポジトリ名 `guitarfish` はそのままでよい（コードネーム）
-- ユーザー向け製品名は SideDiff
-- [`requirements.md`](./requirements.md) 内の「PR Review:」コマンド例は、実装では `SideDiff:` に読み替える
+- GitHub リポジトリ名は `bbtit/branchreview`（D27 で製品名に合わせた。旧 URL は GitHub がリダイレクトする）
+- ローカルの作業ディレクトリ名は `vscode-diff` のままで、揃える必要はない
+- ユーザー向け製品名は BranchReview
+- [`requirements.md`](./requirements.md) 内の「PR Review:」コマンド例は、実装では `BranchReview:` に読み替える
 
 ---
 

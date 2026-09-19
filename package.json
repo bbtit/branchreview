@@ -1,6 +1,6 @@
 {
-  "name": "sidediff",
-  "displayName": "SideDiff",
+  "name": "branchreview",
+  "displayName": "BranchReview",
   "version": "0.0.1",
   "private": true,
   "description": "Codebase-aware PR review: PR branch code in the normal editor, diff as gutter metadata.",
@@ -15,14 +15,14 @@
     "gutter",
     "pull request"
   ],
-  "homepage": "https://github.com/bbtit/sidediff#readme",
+  "homepage": "https://github.com/bbtit/branchreview#readme",
   "bugs": {
-    "url": "https://github.com/bbtit/sidediff/issues"
+    "url": "https://github.com/bbtit/branchreview/issues"
   },
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/bbtit/sidediff.git"
+    "url": "https://github.com/bbtit/branchreview.git"
   },
   "publisher": "bbtit",
   "type": "module",
@@ -44,59 +44,59 @@
   "contributes": {
     "commands": [
       {
-        "command": "sidediff.setBase",
-        "title": "SideDiff: Set Base"
+        "command": "branchreview.setBase",
+        "title": "BranchReview: Set Base"
       },
       {
-        "command": "sidediff.resumeReview",
-        "title": "SideDiff: Resume Review"
+        "command": "branchreview.resumeReview",
+        "title": "BranchReview: Resume Review"
       },
       {
-        "command": "sidediff.stopReview",
-        "title": "SideDiff: Stop Review"
+        "command": "branchreview.stopReview",
+        "title": "BranchReview: Stop Review"
       },
       {
-        "command": "sidediff.clearBase",
-        "title": "SideDiff: Clear Base"
+        "command": "branchreview.clearBase",
+        "title": "BranchReview: Clear Base"
       },
       {
-        "command": "sidediff.clearReviewProgress",
-        "title": "SideDiff: Clear All Review Progress for This Repository"
+        "command": "branchreview.clearReviewProgress",
+        "title": "BranchReview: Clear All Review Progress for This Repository"
       },
       {
-        "command": "sidediff.nextChange",
-        "title": "SideDiff: Next Change"
+        "command": "branchreview.nextChange",
+        "title": "BranchReview: Next Change"
       },
       {
-        "command": "sidediff.previousChange",
-        "title": "SideDiff: Previous Change"
+        "command": "branchreview.previousChange",
+        "title": "BranchReview: Previous Change"
       },
       {
-        "command": "sidediff.showGitContext",
-        "title": "SideDiff: Show Git Context"
+        "command": "branchreview.showGitContext",
+        "title": "BranchReview: Show Git Context"
       },
       {
-        "command": "sidediff.openTreeFile",
-        "title": "SideDiff: Open Changed File"
+        "command": "branchreview.openTreeFile",
+        "title": "BranchReview: Open Changed File"
       },
       {
-        "command": "sidediff.markReviewed",
-        "title": "SideDiff: Mark as Reviewed"
+        "command": "branchreview.markReviewed",
+        "title": "BranchReview: Mark as Reviewed"
       },
       {
-        "command": "sidediff.markUnreviewed",
-        "title": "SideDiff: Mark as Unreviewed"
+        "command": "branchreview.markUnreviewed",
+        "title": "BranchReview: Mark as Unreviewed"
       }
     ],
     "keybindings": [
       {
-        "command": "sidediff.nextChange",
+        "command": "branchreview.nextChange",
         "key": "alt+]",
         "mac": "alt+]",
         "when": "editorTextFocus && !isInDiffEditor"
       },
       {
-        "command": "sidediff.previousChange",
+        "command": "branchreview.previousChange",
         "key": "alt+[",
         "mac": "alt+[",
         "when": "editorTextFocus && !isInDiffEditor"
@@ -105,16 +105,16 @@
     "viewsContainers": {
       "activitybar": [
         {
-          "id": "sidediff",
-          "title": "SideDiff",
-          "icon": "media/sidediff-activity.svg"
+          "id": "branchreview",
+          "title": "BranchReview",
+          "icon": "media/branchreview-activity.svg"
         }
       ]
     },
     "views": {
-      "sidediff": [
+      "branchreview": [
         {
-          "id": "sidediff.changes",
+          "id": "branchreview.changes",
           "name": "Changes"
         }
       ]
@@ -122,19 +122,19 @@
     "menus": {
       "commandPalette": [
         {
-          "command": "sidediff.openTreeFile",
+          "command": "branchreview.openTreeFile",
           "when": "false"
         }
       ],
       "view/item/context": [
         {
-          "command": "sidediff.markReviewed",
-          "when": "view == sidediff.changes && viewItem =~ /^sidediff\\.file(\\.(binary|deleted))?$/",
+          "command": "branchreview.markReviewed",
+          "when": "view == branchreview.changes && viewItem =~ /^branchreview\\.file(\\.(binary|deleted))?$/",
           "group": "1_review@1"
         },
         {
-          "command": "sidediff.markUnreviewed",
-          "when": "view == sidediff.changes && viewItem =~ /^sidediff\\.file(\\.(binary|deleted))?\\.reviewed$/",
+          "command": "branchreview.markUnreviewed",
+          "when": "view == branchreview.changes && viewItem =~ /^branchreview\\.file(\\.(binary|deleted))?\\.reviewed$/",
           "group": "1_review@1"
         }
       ]

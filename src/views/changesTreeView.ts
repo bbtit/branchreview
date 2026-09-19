@@ -6,10 +6,10 @@ import {
   type ChangesTreeSnapshot,
 } from "./changeTreeModel.ts";
 
-export const CHANGES_VIEW_ID = "sidediff.changes";
-export const OPEN_TREE_FILE_COMMAND = "sidediff.openTreeFile";
+export const CHANGES_VIEW_ID = "branchreview.changes";
+export const OPEN_TREE_FILE_COMMAND = "branchreview.openTreeFile";
 
-/** Payload for `sidediff.openTreeFile` (plain JSON — TreeItem command args). */
+/** Payload for `branchreview.openTreeFile` (plain JSON — TreeItem command args). */
 export type OpenTreeFileArgs = {
   repoRoot: string;
   path: string;
@@ -94,12 +94,12 @@ export class ChangesTreeProvider
 
 function contextValueForFileRow(element: Extract<ChangesTreeRow, { kind: "file" }>): string {
   if (!element.openable) {
-    return element.reviewed ? "sidediff.file.deleted.reviewed" : "sidediff.file.deleted";
+    return element.reviewed ? "branchreview.file.deleted.reviewed" : "branchreview.file.deleted";
   }
   if (element.binary) {
-    return element.reviewed ? "sidediff.file.binary.reviewed" : "sidediff.file.binary";
+    return element.reviewed ? "branchreview.file.binary.reviewed" : "branchreview.file.binary";
   }
-  return element.reviewed ? "sidediff.file.reviewed" : "sidediff.file";
+  return element.reviewed ? "branchreview.file.reviewed" : "branchreview.file";
 }
 
 function iconForStatus(

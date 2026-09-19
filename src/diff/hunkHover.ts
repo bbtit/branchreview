@@ -45,8 +45,8 @@ export function formatHunkHoverMarkdown(hunk: DiffHunk): string {
   }
 
   if (lines.length === 0) {
-    return "**SideDiff**\n\n_(no line changes in this hunk)_";
+    return "**BranchReview**\n\n_(no line changes in this hunk)_";
   }
 
-  return `**SideDiff**\n\n\`\`\`diff\n${lines.join("\n")}\n\`\`\``;
+  return `**BranchReview**\n\n\`\`\`diff\n${lines.join("\n")}\n\`\`\``;
 }

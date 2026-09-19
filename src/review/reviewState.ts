@@ -21,7 +21,7 @@ export type RuntimeRepoReview = {
 
 export type RepoReviewSnapshot = PersistedRepoReview & RuntimeRepoReview;
 
-export const WORKSPACE_STATE_KEY = "sidediff.repoReviews";
+export const WORKSPACE_STATE_KEY = "branchreview.repoReviews";
 
 export type PersistedReviewMap = Record<string, PersistedRepoReview>;
 
@@ -159,7 +159,7 @@ export function clearReviewedProgress(previous: PersistedRepoReview): PersistedR
 
 /**
  * Status bar label (D11, D2 dirty hint).
- * Examples: `SideDiff: origin/main`, `SideDiff: off`, `SideDiff: origin/main · local changes`
+ * Examples: `BranchReview: origin/main`, `BranchReview: off`, `BranchReview: origin/main · local changes`
  */
 export function formatStatusBarText(options: {
   overlayActive: boolean;
@@ -168,10 +168,10 @@ export function formatStatusBarText(options: {
 }): string {
   if (!options.overlayActive) {
     // Dirtiness is not tracked while the overlay is off (no `git status` runs).
-    return "SideDiff: off";
+    return "BranchReview: off";
   }
   const base = options.base ?? "(no base)";
-  return options.dirty ? `SideDiff: ${base} · local changes` : `SideDiff: ${base}`;
+  return options.dirty ? `BranchReview: ${base} · local changes` : `BranchReview: ${base}`;
 }
 
 export function formatStatusBarTooltip(options: {

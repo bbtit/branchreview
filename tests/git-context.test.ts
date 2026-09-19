@@ -28,8 +28,8 @@ async function gitInitWithCommit(
   branch = "main",
 ): Promise<{ filePath: string; head: string }> {
   await git.exec(root, ["init", "-b", branch]);
-  await git.exec(root, ["config", "user.email", "sidediff@example.com"]);
-  await git.exec(root, ["config", "user.name", "SideDiff Test"]);
+  await git.exec(root, ["config", "user.email", "branchreview@example.com"]);
+  await git.exec(root, ["config", "user.name", "BranchReview Test"]);
   const filePath = join(root, "readme.txt");
   await writeFile(filePath, "hello\n", "utf8");
   await git.exec(root, ["add", "readme.txt"]);
@@ -39,7 +39,7 @@ async function gitInitWithCommit(
 }
 
 test("reports the owning repo, branch, and HEAD for a file on a branch", async () => {
-  const root = await createTempDir("sidediff-git-");
+  const root = await createTempDir("branchreview-git-");
   const { filePath, head } = await gitInitWithCommit(root, "feature/demo");
 
   const context = await getGitContextForFile(git, filePath);
@@ -54,7 +54,7 @@ test("reports the owning repo, branch, and HEAD for a file on a branch", async (
 });
 
 test("refuses review when HEAD is detached", async () => {
-  const root = await createTempDir("sidediff-detached-");
+  const root = await createTempDir("branchreview-detached-");
   const { filePath, head } = await gitInitWithCommit(root, "main");
   await git.exec(root, ["checkout", "--detach", "HEAD"]);
 
@@ -70,7 +70,7 @@ test("refuses review when HEAD is detached", async () => {
 });
 
 test("targets the repository that owns the active file", async () => {
-  const workspace = await createTempDir("sidediff-multiroot-");
+  const workspace = await createTempDir("branchreview-multiroot-");
   const repoA = join(workspace, "repo-a");
   const repoB = join(workspace, "repo-b");
   await mkdir(repoA);
@@ -90,7 +90,7 @@ test("targets the repository that owns the active file", async () => {
 });
 
 test("has no context when the file is outside any repository", async () => {
-  const dir = await createTempDir("sidediff-nongit-");
+  const dir = await createTempDir("branchreview-nongit-");
   const filePath = join(dir, "alone.txt");
   await writeFile(filePath, "no git\n", "utf8");
 
@@ -99,7 +99,7 @@ test("has no context when the file is outside any repository", async () => {
 });
 
 test("resolves context when given the repository root directory", async () => {
-  const root = await createTempDir("sidediff-dir-");
+  const root = await createTempDir("branchreview-dir-");
   const { head } = await gitInitWithCommit(root, "main");
 
   const context = await getGitContextForFile(git, root);
@@ -114,7 +114,7 @@ test("resolves context when given the repository root directory", async () => {
 });
 
 test("looks up context only through the shared Git client", async () => {
-  const root = await createTempDir("sidediff-client-");
+  const root = await createTempDir("branchreview-client-");
   const { filePath } = await gitInitWithCommit(root);
 
   const calls: string[][] = [];

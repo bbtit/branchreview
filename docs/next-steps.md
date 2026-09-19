@@ -1,4 +1,4 @@
-# SideDiff これからやるべきこと
+# BranchReview これからやるべきこと
 
 最終更新: 2026-09-20
 
@@ -8,14 +8,14 @@ MVP の実装 issue（#1〜#11、#14〜#16）はすべて完了し、実際の V
 
 - 要件: [`requirements.md`](./requirements.md) / 決定: [`decisions.md`](./decisions.md)
 - 手動手順: [`manual-tests.md`](./manual-tests.md) / API 調査: [`research-vscode-apis.md`](./research-vscode-apis.md)
-- issue: https://github.com/bbtit/sidediff/issues
+- issue: https://github.com/bbtit/branchreview/issues
 
 ---
 
 ## 1. MVP は完了
 
 2026-09-20 に §25 の受け入れ項目を実際の VS Code 上ですべて確認し、
-[#12](https://github.com/bbtit/sidediff/issues/12) / Epic [#13](https://github.com/bbtit/sidediff/issues/13) / Milestone MVP を閉じた。
+[#12](https://github.com/bbtit/branchreview/issues/12) / Epic [#13](https://github.com/bbtit/branchreview/issues/13) / Milestone MVP を閉じた。
 これ以降の作業は次節以降。
 
 ---
@@ -24,7 +24,7 @@ MVP の実装 issue（#1〜#11、#14〜#16）はすべて完了し、実際の V
 
 ### 2.1 空白・非 ASCII を含むファイル名で gutter が出ない — 修正済み
 
-issue: [#17](https://github.com/bbtit/sidediff/issues/17)
+issue: [#17](https://github.com/bbtit/branchreview/issues/17)
 
 原因は、git が出すパス表記を素通ししていたこと。3点を直した。
 
@@ -83,9 +83,9 @@ issue: [#17](https://github.com/bbtit/sidediff/issues/17)
 
 - **Extension Host の自動テストが無い**。現在は Node 上の Vitest + fake `vscode`（`tests/fakes/vscode.ts`）。
   D21 に「必要になったら後続 ticket で追加」とあるので、判断はそのとき
-- **watcher を作れないリポジトリ**では、ブランチ切り替えの検知がウィンドウのフォーカス復帰まで遅れる（[#14](https://github.com/bbtit/sidediff/issues/14) のトレードオフ）
-- **64MB 超の diff** は未検証。型付きエラーと文言の経路で担保している（[#16](https://github.com/bbtit/sidediff/issues/16)）
-- **`index.lock` の実競合**は再現していない。`--no-optional-locks` の付与で担保（[#15](https://github.com/bbtit/sidediff/issues/15)）
+- **watcher を作れないリポジトリ**では、ブランチ切り替えの検知がウィンドウのフォーカス復帰まで遅れる（[#14](https://github.com/bbtit/branchreview/issues/14) のトレードオフ）
+- **64MB 超の diff** は未検証。型付きエラーと文言の経路で担保している（[#16](https://github.com/bbtit/branchreview/issues/16)）
+- **`index.lock` の実競合**は再現していない。`--no-optional-locks` の付与で担保（[#15](https://github.com/bbtit/branchreview/issues/15)）
 
 ---
 
