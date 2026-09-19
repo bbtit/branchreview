@@ -9,6 +9,7 @@
 - 要件: [`requirements.md`](./requirements.md)
 - 決定: [`decisions.md`](./decisions.md)
 - 手動テスト: [`manual-tests.md`](./manual-tests.md)（§20 エッジケースと §25 受け入れを実 VS Code で確認する手順）
+- MVP 後の残作業: [`next-steps.md`](./next-steps.md)（既知の不具合・リリース準備・P2）
 
 ## 実行順
 

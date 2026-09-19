@@ -89,14 +89,31 @@ VS Code でこのフォルダを開き、`F5`（拡張の開発ホスト）ま�
 - `Alt+]` / `Alt+[`（Mac も同じ）を押す
 - **期待**: 変更箇所をファイルを跨いで移動する。末尾の次は先頭に戻る。削除ファイルには移動しない
 
-### 9. HEAD 追従（D13）と自動 Stop（D5）
+### 9. HEAD 追従（D13）
 
-- レビュー中に `git commit --allow-empty -m more` を実行する
-- **期待**: 手動リフレッシュなしで Changes ツリーと gutter が新しい HEAD 基準になる
-- `git checkout main` を実行する
-- **期待**: `SideDiff: stopped after branch change …` が出て overlay が止まり、gutter が消える。base の記憶は残るので `SideDiff: Resume Review` で再開できる
+同じブランチで HEAD が進んだとき、手動リフレッシュなしで `base...HEAD` を取り直すことを確認する。
+**差分の内容が変わるコミット**でないと画面上は何も変わらないので、必ず中身を変えて commit する。
+（`--allow-empty` や `base...HEAD` の結果が同じになるコミットでは、再取得は走るが表示は変わらないため確認にならない。）
 
-### 10. 大きな diff（MVP-10c）
+- `added.txt` を開いたままにする。この時点で gutter マークは 1〜3 行目、Changes ツリーの説明は `+3`
+- ターミナルで4行目を足して commit する（`keep.txt` の未 commit 変更はケース5で使うので巻き込まない）
+
+  ```sh
+  printf 'added1\nadded2\nadded3\nadded4\n' > added.txt
+  git add added.txt && git commit -m "more"
+  ```
+
+- **期待**: 操作しなくても数百 ms 以内に、gutter マークが 4 行目まで伸び、Changes ツリーの説明が `+4` になる
+- 変形として `git commit --amend -m "amended"` や `git pull` でも、差分が変われば同じように追従する
+
+### 10. 自動 Stop（D5）と再開
+
+- レビュー中に `git checkout main` を実行する
+- **期待**: `SideDiff: stopped after branch change …` が出て overlay が止まり、gutter が消える。ステータスバーは `SideDiff: off`
+- `git checkout feature/demo` に戻して `SideDiff: Resume Review` を実行する
+- **期待**: base の記憶（`main`）が残っているので、base を選び直さずにレビューが再開し、gutter が戻る
+
+### 11. 大きな diff（MVP-10c）
 
 - 20万行規模のファイルを1コミットで追加したブランチを base と比較する
 - **期待**: 通常どおり gutter と Changes ツリーが出る（64MB までは読む）
