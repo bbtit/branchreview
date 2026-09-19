@@ -47,6 +47,11 @@ Grilling で確定した判断。要件の正本は [`requirements.md`](./requir
 - editor inset は **proposed API**（`@types/vscode` に存在しない）。「stable API のみ」の方針に反する
 - デコレーションの `contentText` は文字列ひとつで改行できないため、既存の行に横付けする形にしかならない
 
+一次情報は [`research-vscode-apis.md`](./research-vscode-apis.md)（設計前の API 調査）にある。
+`contentText` が単一行で lsp_lines 相当の virtual lines を作れないことは
+[VS Code #63600](https://github.com/microsoft/vscode/issues/63600) として、`editorInsets` が proposed であることも
+そこで調査済みだった。2026-09-20 に `@types/vscode` の型定義で再確認している。
+
 残る代替（行末に重ねる / CodeLens で開閉）はどれも「ひと手間かけて旧コードを見る」形になり、
 既に実装済みの hover と役割が重なる。よって作らない。
 

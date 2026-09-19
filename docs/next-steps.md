@@ -7,7 +7,7 @@ MVP の実装 issue（#1〜#11、#14〜#16）はすべて完了し、実際の V
 実装済みの内容は各 issue のクローズコメントとコミットにあるので、ここでは繰り返さない。
 
 - 要件: [`requirements.md`](./requirements.md) / 決定: [`decisions.md`](./decisions.md)
-- MVP の進行: [`backlog.md`](./backlog.md) / 手動手順: [`manual-tests.md`](./manual-tests.md)
+- 手動手順: [`manual-tests.md`](./manual-tests.md) / API 調査: [`research-vscode-apis.md`](./research-vscode-apis.md)
 - issue: https://github.com/bbtit/sidediff/issues
 
 ---

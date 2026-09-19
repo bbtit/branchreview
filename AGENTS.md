@@ -20,3 +20,9 @@ VS Code 拡張の定石に合わせる。全部 class / 全部関数にしない
 - テストケース名は **振る舞い** を書く（実装詳細・API 名・決定 ID は入れない）
 - 良い例: `refuses review when HEAD is detached`
 - 悪い例: `marks detached HEAD as not reviewable` / `GitClient is the single execution entry` / `… (D9)`
+
+## Workflow
+
+- **Diff Editor をレビュー導線に使わない**。レビューは常に通常のエディタ上で完結させる（`vscode.diff` を呼ばない）
+- **決定を変えるときは、先に [`docs/decisions.md`](./docs/decisions.md) を更新する**。コードを書いてから辻褄を合わせない
+- 品質ゲートは `pnpm check` + `pnpm test`。バグ修正はまず**落ちるテスト**を書いてから直す

@@ -22,15 +22,45 @@ SideDiff turns that around. You read the real file, in the real project, and the
 - **Three-dot comparison** (`base...HEAD`): you see what the branch changed, never your own uncommitted work
 - **Multi-root aware**: the active editor decides which repository is under review
 
-## Getting started
+## How to use it
 
-1. Check out the branch you want to review.
-2. Run **`SideDiff: Set Base`** and pick a base (`main`, `origin/main`, a tag, any revision).
-3. Gutter marks appear, and the activity bar **SideDiff → Changes** lists the changed files.
-4. Walk the change list with `Alt+]`, or click a file in the tree to open it.
-5. Run **`SideDiff: Stop Review`** when you are done. **`Resume Review`** picks the same base back up.
+### 1. Start a review
 
-The status bar shows `SideDiff: off`, or `SideDiff: <base>` while a review is on — with `· local changes` appended when the working tree is dirty, so you always know the gutter is showing the commit range and not your edits.
+Check out the branch you want to review. Then open the Command Palette (`Ctrl+Shift+P`, macOS `Cmd+Shift+P`), run **`SideDiff: Set Base`**, and pick what to compare against — usually `main` or `origin/main`, but any branch, tag, or commit works.
+
+That is the whole setup. The status bar switches from `SideDiff: off` to `SideDiff: main`.
+
+### 2. Read the code
+
+Open files the way you always do. Changed lines now carry a gutter mark:
+
+| Mark        | Meaning                                                                         |
+| ----------- | ------------------------------------------------------------------------------- |
+| **Added**   | lines this branch introduced                                                    |
+| **Changed** | lines this branch rewrote                                                       |
+| **Deleted** | lines this branch removed — the mark sits on the surviving line next to the gap |
+
+**Hover any mark** to see that hunk as a diff, including the old code that was replaced or deleted. Nothing is ever injected into your file.
+
+Because this is your real file in your real project, everything else still works while you review: go-to-definition, find-references, rename, your linter, your tests.
+
+### 3. Walk the changes
+
+`Alt+]` goes to the next change, `Alt+[` to the previous one — **across files**, wrapping from the last change back to the first. Jumping into a file you have not opened yet just opens it normally.
+
+The activity bar **SideDiff → Changes** lists every changed file with its `+n -n`. Click a file to open it at its changes.
+
+### 4. Keep track of what you have read
+
+Right-click a file in the Changes view and choose **Mark as Reviewed**. It gets a ✓, and the progress row counts up (`3 / 12 files reviewed`).
+
+Progress is remembered per repository, base, and branch — so when new commits land on the same branch, what you already reviewed stays reviewed.
+
+### 5. Finish, or come back later
+
+**`SideDiff: Stop Review`** turns the overlay off but keeps the base, so **`Resume Review`** picks it straight back up — including after a window reload. **`Clear Base`** forgets the base and the reviewed progress.
+
+While a review is on, the status bar reads `SideDiff: <base>`, with `· local changes` appended when your working tree is dirty — so you always know the gutter is showing the commit range and not your own uncommitted edits.
 
 ## Commands
 
@@ -77,7 +107,8 @@ pnpm build   # bundle to dist/extension.cjs
 Press **F5** to launch an Extension Development Host. The toolchain is [Vite+](https://viteplus.dev/) (`vp`); ESLint, Prettier, Jest, and webpack are intentionally not used.
 
 - [`docs/requirements.md`](./docs/requirements.md) — product requirements
-- [`docs/decisions.md`](./docs/decisions.md) — implementation decisions
+- [`docs/decisions.md`](./docs/decisions.md) — implementation decisions, and why
+- [`docs/research-vscode-apis.md`](./docs/research-vscode-apis.md) — the VS Code API survey the design rests on
 - [`docs/manual-tests.md`](./docs/manual-tests.md) — manual QA steps
 - [`docs/next-steps.md`](./docs/next-steps.md) — what is left
 
