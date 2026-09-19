@@ -1,0 +1,29 @@
+# Everything the VSIX does not need. The extension ships as one bundled
+# `dist/extension.cjs` plus `media/` (gutter + activity bar icons), so sources,
+# tests, docs and tooling config all stay out.
+
+.github/**
+.vscode/**
+.vite-hooks/**
+.vscode-test/**
+
+src/**
+tests/**
+docs/**
+node_modules/**
+
+# Bundled output is shipped; its sourcemaps are not.
+dist/**/*.map
+
+# Only the rasterized icon ships; the SVG is just what it was drawn from.
+media/icon.svg
+
+.gitignore
+.npmrc
+AGENTS.md
+pnpm-lock.yaml
+pnpm-workspace.yaml
+tsconfig.json
+vite.config.ts
+**/*.vsix
+**/.DS_Store

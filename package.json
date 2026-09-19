@@ -5,8 +5,20 @@
   "private": true,
   "description": "Codebase-aware PR review: PR branch code in the normal editor, diff as gutter metadata.",
   "categories": [
-    "Other"
+    "Other",
+    "SCM Providers"
   ],
+  "keywords": [
+    "code review",
+    "diff",
+    "git",
+    "gutter",
+    "pull request"
+  ],
+  "homepage": "https://github.com/bbtit/sidediff#readme",
+  "bugs": {
+    "url": "https://github.com/bbtit/sidediff/issues"
+  },
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -18,9 +30,9 @@
   "scripts": {
     "build": "vp pack",
     "check": "vp check",
+    "package": "vp pack && pnpm dlx @vscode/vsce package --no-dependencies",
     "test": "vp test",
-    "watch": "vp pack --watch",
-    "vscode:prepublish": "pnpm run build"
+    "watch": "vp pack --watch"
   },
   "devDependencies": {
     "@types/node": "^22.13.10",
@@ -131,6 +143,7 @@
   "activationEvents": [
     "onStartupFinished"
   ],
+  "icon": "media/icon.png",
   "devEngines": {
     "packageManager": {
       "name": "pnpm",

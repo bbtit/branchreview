@@ -1,0 +1,37 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# A new push to the same branch supersedes the run already in flight.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          # Matches devEngines.packageManager in package.json (D20).
+          version: 10.25.0
+
+      - name: Install Node
+        uses: actions/setup-node@v4
+        with:
+          # Vite+ 0.3.0 needs ^20.19.0 || ^22.18.0 || >=24.11.0.
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # The daily quality gate, same three commands as local (D21).
+      - run: pnpm check
+      - run: pnpm test
+      - run: pnpm build

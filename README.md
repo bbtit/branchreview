@@ -1,86 +1,86 @@
 # SideDiff
 
-Codebase-aware PR review for VS Code: keep the PR branch’s normal editor as the source of truth, and treat diff as gutter/decorator metadata.
-
 **Diff is metadata, not the document.**
+
+Review a pull request without leaving your codebase. SideDiff keeps the branch open in the **normal editor** — IntelliSense, go-to-definition, find-references, your own extensions, all of it — and paints the diff on top as gutter marks and hovers.
+
+It never opens a side-by-side Diff Editor.
+
+## Why
+
+A Diff Editor shows two columns of text. It cannot tell you who calls the function you just changed, or what the type on line 40 actually is, because the thing you are reading is not your project — it is a snapshot in a scratch buffer.
+
+SideDiff turns that around. You read the real file, in the real project, and the diff rides along as metadata in the gutter. Reviewing stays a codebase activity.
+
+## Features
+
+- **Gutter marks** for added, changed, and deleted lines across `base...HEAD`
+- **Hover** on a mark to see the old code a change or deletion replaced
+- **Changes view** in the activity bar: every changed file with `+n -n`, plus `binary` and rename hints
+- **Mark files reviewed** from the tree; progress survives new commits on the same branch
+- **Jump between changes** across files with `Alt+]` / `Alt+[`, wrapping at the ends
+- **Three-dot comparison** (`base...HEAD`): you see what the branch changed, never your own uncommitted work
+- **Multi-root aware**: the active editor decides which repository is under review
+
+## Getting started
+
+1. Check out the branch you want to review.
+2. Run **`SideDiff: Set Base`** and pick a base (`main`, `origin/main`, a tag, any revision).
+3. Gutter marks appear, and the activity bar **SideDiff → Changes** lists the changed files.
+4. Walk the change list with `Alt+]`, or click a file in the tree to open it.
+5. Run **`SideDiff: Stop Review`** when you are done. **`Resume Review`** picks the same base back up.
+
+The status bar shows `SideDiff: off`, or `SideDiff: <base>` while a review is on — with `· local changes` appended when the working tree is dirty, so you always know the gutter is showing the commit range and not your edits.
+
+## Commands
+
+| Command                                                   | What it does                                                  |
+| --------------------------------------------------------- | ------------------------------------------------------------- |
+| `SideDiff: Set Base`                                      | Pick the revision to compare against and start the review     |
+| `SideDiff: Resume Review`                                 | Restart the review with the remembered base                   |
+| `SideDiff: Stop Review`                                   | Turn the overlay off, keep the base for later                 |
+| `SideDiff: Clear Base`                                    | Forget the base and the reviewed progress                     |
+| `SideDiff: Next Change` / `Previous Change`               | Move to the next / previous hunk, across files                |
+| `SideDiff: Mark as Reviewed` / `Mark as Unreviewed`       | Toggle a file's reviewed state from the Changes view          |
+| `SideDiff: Clear All Review Progress for This Repository` | Drop reviewed progress for every base and branch in this repo |
+| `SideDiff: Show Git Context`                              | Show the repository root, branch, and HEAD (debugging)        |
+
+## Keybindings
+
+| Shortcut                   | Command         |
+| -------------------------- | --------------- |
+| `Alt+]` (macOS `Option+]`) | Next Change     |
+| `Alt+[` (macOS `Option+[`) | Previous Change |
+
+## Good to know
+
+- **Uncommitted changes are not part of the review.** The gutter always reflects `base...HEAD`; the status bar flags a dirty working tree instead of mixing the two.
+- **Deleted files** appear in the Changes view but do not open — there is no file left to show.
+- **Binary files** are listed without gutter decorations.
+- **A detached HEAD cannot start a review**; check out a branch first.
+- Switching branches mid-review stops the overlay automatically and keeps the base for **Resume Review**.
 
 ## Requirements
 
-- [pnpm](https://pnpm.io/) (see D20)
-- [Vite+](https://viteplus.dev/) (`vp` CLI) (see D21)
+- VS Code 1.96 or newer
+- `git` on your `PATH`
 
-Install Vite+ if needed:
-
-```bash
-curl -fsSL https://vite.plus | bash
-```
-
-## Develop
+## Development
 
 ```bash
 pnpm install
-vp check
-vp test
-vp pack   # or: pnpm build
+pnpm check   # oxlint + oxfmt + types
+pnpm test    # vitest
+pnpm build   # bundle to dist/extension.cjs
 ```
 
-Press **F5** in VS Code / Cursor to launch an Extension Development Host.
-
-Command Palette:
-
-- `SideDiff: Set Base` / `Resume Review` / `Stop Review` / `Clear Base`
-- `SideDiff: Next Change` / `Previous Change` (`Alt+]` / `Alt+[`)
-- `SideDiff: Show Git Context` (debug: repo root / branch / HEAD)
-
-Status bar shows `SideDiff: off` or `SideDiff: <base>` (and `· local changes` when the working tree is dirty during review).
-
-Activity bar **SideDiff** → **Changes** lists files from `base...HEAD` while overlay is ON. Click opens the normal editor (deleted files show a message only; never Diff Editor).
-
-### Manual check (MVP-08)
-
-1. Set Base so overlay is ON → SideDiff activity bar **Changes** lists modified/added/deleted/renamed files with `+/-` (and `binary` when applicable).
-2. Click a non-deleted file → opens in the normal editor with gutters (when text).
-3. Click a deleted file → information message only; no Diff Editor.
-4. Stop Review → tree shows “Review is off”; Set Base again with a different base → list updates.
-5. Base header row shows the current base revision.
-
-### Manual check (MVP-06)
-
-1. Set Base so overlay is ON on a branch with changes in multiple files.
-2. **Next Change** / `Alt+]` moves to the next hunk in the same file, then the first hunk of the next file.
-3. At the last change, Next wraps to the first; **Previous Change** / `Alt+[` wraps the other way.
-4. Jumping to an unopened file opens it in the normal editor with gutters visible (no Diff Editor).
-
-### Manual check (MVP-03)
-
-1. On a normal branch, **Set Base** → pick `main` (or another existing ref) → status bar shows `SideDiff: <base>` (overlay ON).
-2. **Stop Review** → status bar `SideDiff: off`; **Resume Review** → ON again with the same base.
-3. Reload the window → overlay is OFF but Resume still works (base persisted, D3).
-4. Set Base → enter a bogus revision → error; previous base unchanged; overlay stays off if it was off (D17).
-5. `git checkout --detach` then Set/Resume → message to check out a branch; review does not start (D15).
-6. Start review, then `git checkout` another branch → overlay auto-stops; base remains for Resume (D5).
-7. With overlay ON, edit a tracked file → status bar includes `local changes`.
-8. None of the commands open a Diff Editor.
-
-### Manual check (MVP-02)
-
-1. Open a file on a normal branch → Show Git Context shows repo root, branch, HEAD.
-2. In a multi-root workspace, switch the active editor to a file in another repo → repo root/branch switch with the file (D9).
-3. `git checkout --detach` then run Show Git Context → detached / not reviewable (D15).
-
-## Tooling
-
-| Task                  | Command                  |
-| --------------------- | ------------------------ |
-| Install               | `pnpm install`           |
-| Lint + format + types | `vp check`               |
-| Tests                 | `vp test`                |
-| Bundle extension      | `vp pack` / `pnpm build` |
-
-ESLint, Prettier, Jest, and webpack are intentionally not used.
-
-## Docs
+Press **F5** to launch an Extension Development Host. The toolchain is [Vite+](https://viteplus.dev/) (`vp`); ESLint, Prettier, Jest, and webpack are intentionally not used.
 
 - [`docs/requirements.md`](./docs/requirements.md) — product requirements
 - [`docs/decisions.md`](./docs/decisions.md) — implementation decisions
-- [`docs/backlog.md`](./docs/backlog.md) — MVP backlog order
+- [`docs/manual-tests.md`](./docs/manual-tests.md) — manual QA steps
+- [`docs/next-steps.md`](./docs/next-steps.md) — what is left
+
+## License
+
+[MIT](./LICENSE)

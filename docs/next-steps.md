@@ -50,16 +50,30 @@ issue: [#17](https://github.com/bbtit/sidediff/issues/17)
 
 ---
 
-## 3. リリース準備（未着手）
+## 3. リリース準備
 
-公開を目指すなら、いずれも MVP とは別に必要になる。
+2026-09-20 に一通り揃えた。**公開そのものはまだ行っていない。**
 
-- **LICENSE ファイルが無い**。`package.json` は MIT を宣言しているので実体を置く
-- **README が開発者向け**。Marketplace 用の説明（何が嬉しいか、GIF、キーバインド、コマンド一覧）が無い
-- **`.vscodeignore` が無い** → `docs/` `tests/` などが VSIX に同梱される
-- `package.json`: `icon` 未設定、`version` は `0.0.1` のまま、`categories` は `Other` のみ
-- 公開手順（`vsce` / `ovsx`）を決めて `decisions.md` に残す（D21 のツール方針と整合させる）
-- **CI が無い**（`.github/` なし）。push / PR で `vp check` + `vp test` + `vp build` を回す
+済み:
+
+- `LICENSE`（MIT / 2026 bbtit）を置いた
+- `README.md` を Marketplace 向けに書き直した（何が嬉しいか・コマンド表・キーバインド・制約）。開発者向けの内容は末尾に小さく残した
+- `.vscodeignore` を追加。`pnpm package` で実際に VSIX を作って中身を確認した
+  → **11ファイル / 27.6 KB**。`dist/extension.cjs` と `media/` と `package.json` / `README` / `LICENSE` のみで、
+  `src` / `tests` / `docs` / sourcemap は入らない
+- `package.json`: `icon`（`media/icon.png` 128×128）、`categories` に `SCM Providers`、`keywords` / `homepage` / `bugs` を追加。
+  `version` は `0.0.1` のまま（意図的）
+- `vscode:prepublish` を廃止し `pnpm package` に集約した。理由は [`decisions.md`](./decisions.md) の Release / publishing を参照
+  （vsce がこのスクリプトを `npm run` で実行するため、`devEngines` の pnpm 指定と衝突して必ず失敗する）
+- 公開手順を `decisions.md` の D23〜D25 に記録した
+- CI: `.github/workflows/ci.yml`（push / PR で `pnpm check` → `pnpm test` → `pnpm build`）
+
+残り:
+
+- **CI をまだ一度も走らせていない**。push するまで green かどうかは分からない
+- スクリーンショット / GIF が無い。Marketplace のページとしては弱い
+- 実際の公開と、そのためのアカウント・トークンの準備
+- `version` を上げるタイミングの判断（今は `0.0.1`）
 
 ---
 

@@ -103,6 +103,32 @@ Grilling で確定した判断。要件の正本は [`requirements.md`](./requir
 
 ---
 
+## Release / publishing
+
+| ID  | Decision                                                                                                                                                |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| D23 | 配布先は **VS Code Marketplace（`vsce`）と Open VSX（`ovsx`）の両方**。どちらも `pnpm dlx` で都度実行し、devDependencies には足さない（D21 を崩さない） |
+| D24 | VSIX に入れるのは `dist/extension.cjs` と `media/` だけ。`src` / `tests` / `docs` / tooling config は `.vscodeignore` で除外する                        |
+| D25 | CI（GitHub Actions）は push / PR で `pnpm check` → `pnpm test` → `pnpm build`。**公開は CI から行わない**（トークンを CI に置かない）                   |
+
+公開手順:
+
+```sh
+pnpm package                      # vp pack → VSIX を作る
+unzip -l sidediff-<version>.vsix  # dist と media だけか確認する
+pnpm dlx @vscode/vsce publish --packagePath sidediff-<version>.vsix  # Marketplace
+pnpm dlx ovsx publish sidediff-<version>.vsix                        # Open VSX
+```
+
+npm を経由しないこと（D20 の帰結。2026-09-20 に実際に踏んだ）:
+
+- **`npx` は使えない**。`devEngines.packageManager` が pnpm なので、npm が `EBADDEVENGINES` で止まる
+- **`vscode:prepublish` は置かない**。vsce はこのスクリプトを **`npm run` で** 実行するため、同じ理由で失敗する。
+  ビルドは `pnpm package`（`vp pack && …`）が先に済ませ、公開は `--packagePath` で作成済みの VSIX を渡す
+- `private: true` が付いたままでも `vsce package` は通る（確認済み）
+
+---
+
 ## Naming notes
 
 - リポジトリ名 `guitarfish` はそのままでよい（コードネーム）
