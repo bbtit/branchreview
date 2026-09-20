@@ -4,25 +4,9 @@ _日本語: [README.ja.md](./README.ja.md)_
 
 **Diff is metadata, not the document.**
 
-Review a pull request without leaving your codebase. BranchReview keeps the branch open in the **normal editor** — IntelliSense, go-to-definition, find-references, your own extensions, all of it — and paints the diff on top as gutter marks and hovers.
+A conventional diff view is noisy. Old and new sit side by side, deleted lines stay on screen, and the code you actually came to read has to be picked out of the correspondence between two columns. You do not get your whole editor either: go-to-definition, find-references, and rename do not always reach into a diff.
 
-It never opens a side-by-side Diff Editor.
-
-## Why
-
-A Diff Editor shows two columns of text. It cannot tell you who calls the function you just changed, or what the type on line 40 actually is, because the thing you are reading is not your project — it is a snapshot in a scratch buffer.
-
-BranchReview turns that around. You read the real file, in the real project, and the diff rides along as metadata in the gutter. Reviewing stays a codebase activity.
-
-## Features
-
-- **Gutter marks** for added, changed, and deleted lines across `base...HEAD`
-- **Hover** on a mark to see the old code a change or deletion replaced
-- **Changes view** in the activity bar: every changed file with `+n -n`, plus `binary` and rename hints
-- **Mark files reviewed** from the tree; progress survives new commits on the same branch
-- **Jump between changes** across files with `Alt+]` / `Alt+[`, wrapping at the ends
-- **Three-dot comparison** (`base...HEAD`): you see what the branch changed, never your own uncommitted work
-- **Multi-root aware**: the active editor decides which repository is under review
+BranchReview keeps the branch open in the **normal editor** and paints the branch diff on top as gutter marks and hovers. You are reading the real file in the real project, so you can stay on the new code, and every editor feature still works.
 
 ## How to use it
 
@@ -43,8 +27,6 @@ Open files the way you always do. Changed lines now carry a gutter mark:
 | **Deleted** | lines this branch removed — the mark sits on the surviving line next to the gap |
 
 **Hover any mark** to see that hunk as a diff, including the old code that was replaced or deleted. Nothing is ever injected into your file.
-
-Because this is your real file in your real project, everything else still works while you review: go-to-definition, find-references, rename, your linter, your tests.
 
 ### 3. Walk the changes
 
