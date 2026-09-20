@@ -8,13 +8,21 @@ BranchReview keeps the branch under review open in the normal editor and shows t
 
 ## How to use it
 
-### 1. Start a review
+### 1. Check out the branch you want to review
 
-Check out the branch you want to review. Then open the Command Palette (`Ctrl+Shift+P`, macOS `Cmd+Shift+P`), run **`BranchReview: Set Base`**, and pick what to compare against — usually `main` or `origin/main`, but any branch, tag, or commit works.
+```zsh
+git checkout feat/your-branch
+```
+
+### 2. Run `BranchReview: Set Base`
+
+Open the Command Palette (Windows: `Ctrl+Shift+P`, macOS: `Cmd+Shift+P`) and run `BranchReview: Set Base`, then pick what to compare against.
+
+You can also click `BranchReview: off` in the status bar to pick the comparison target.
 
 That is the whole setup. The status bar switches from `BranchReview: off` to `BranchReview: main`.
 
-### 2. Read the code
+### 3. Read the code
 
 Open files the way you always do. Changed lines now carry a gutter mark:
 
@@ -26,19 +34,19 @@ Open files the way you always do. Changed lines now carry a gutter mark:
 
 **Hover any mark** to see that hunk as a diff, including the old code that was replaced or deleted. Nothing is ever injected into your file.
 
-### 3. Walk the changes
+### 4. Walk the changes
 
 `Alt+]` goes to the next change, `Alt+[` to the previous one — **across files**, wrapping from the last change back to the first. Jumping into a file you have not opened yet just opens it normally.
 
 The activity bar **BranchReview → Changes** lists every changed file with its `+n -n`. Click a file to open it at its changes.
 
-### 4. Keep track of what you have read
+### 5. Keep track of what you have read
 
 Right-click a file in the Changes view and choose **Mark as Reviewed**. It gets a ✓, and the progress row counts up (`3 / 12 files reviewed`).
 
 Progress is remembered per repository, base, and branch — so when new commits land on the same branch, what you already reviewed stays reviewed.
 
-### 5. Finish, or come back later
+### 6. Finish, or come back later
 
 **`BranchReview: Stop Review`** turns the overlay off but keeps the base, so **`Resume Review`** picks it straight back up — including after a window reload. **`Clear Base`** forgets the base and the reviewed progress.
 
