@@ -2,11 +2,9 @@
 
 _日本語: [README.ja.md](./README.ja.md)_
 
-**Diff is metadata, not the document.**
+A conventional diff view tends to be noisy. Old and new sit side by side, and deleted lines stay on screen. Nor can you always use everything your editor offers.
 
-A conventional diff view is noisy. Old and new sit side by side, deleted lines stay on screen, and the code you actually came to read has to be picked out of the correspondence between two columns. You do not get your whole editor either: go-to-definition, find-references, and rename do not always reach into a diff.
-
-BranchReview keeps the branch open in the **normal editor** and paints the branch diff on top as gutter marks and hovers. You are reading the real file in the real project, so you can stay on the new code, and every editor feature still works.
+BranchReview keeps the branch under review open in the normal editor and shows the diff between branches as gutter marks and hovers. You are opening the real file, so every editor feature still works. It is a VS Code extension for focusing on the new code rather than the diff.
 
 ## How to use it
 
