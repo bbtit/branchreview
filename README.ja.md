@@ -22,6 +22,8 @@ git checkout feat/⚪︎⚪︎⚪︎
 
 準備はこれだけです。ステータスバーの表示が `BranchReview: off` から `BranchReview: main` に変わります。
 
+![ステータスバーの BranchReview: off を押して比較対象を選び、表示が BranchReview: main に変わるまで](docs/images/step2-set-base.webp)
+
 ### 3. gutter のマークが変更行を示す
 
 あとはいつもどおりファイルを開くだけです。変更のある行には、gutter にマークが付きます。
@@ -34,15 +36,21 @@ git checkout feat/⚪︎⚪︎⚪︎
 
 **マークにマウスを載せると**、その hunk が diff として出ます。書き換えられる前の行も、消された行も、ここで全文を読めます。ファイルの中身には何も挿入しません。
 
+![gutter のマークに hover して、置き換え前の行を含む hunk が diff で出ているところ](docs/images/step3-gutter-hover.webp)
+
 ### 4. `Alt+]` で次の変更へ飛ぶ
 
 `Alt+]` で次の変更、`Alt+[` で前の変更に移動します。移動は**ファイルをまたぎます**。最後の変更まで行くと先頭に戻ります。まだ開いていないファイルへ飛んだときは、そのファイルが普通に開きます。
+
+![次の変更へ移動し、さらに別のファイルへ飛ぶところ](docs/images/step4-navigate.webp)
 
 アクティビティバーの **BranchReview → Changes** には、変更されたファイルが `+n -n` 付きで並びます。クリックすれば、そのファイルが開きます。
 
 ### 5. 読み終えたファイルに印を付ける
 
-Changes ビューでファイルを右クリックし、**Mark as Reviewed** を選ぶと ✓ が付き、進捗の行が増えます（`3 / 12 files reviewed`）。
+Changes ビューでファイルを右クリックし、**Mark as Reviewed** を選ぶと ✓ が付き、進捗の行が増えます（`1 / 14 files reviewed`）。
+
+![Changes ビューでファイルに既読の印を付け、進捗の行が増えていくところ](docs/images/step5-reviewed.webp)
 
 進捗はリポジトリ・base・ブランチの組ごとに覚えています。同じブランチに新しいコミットが載っても、読み終えた印は消えません。
 

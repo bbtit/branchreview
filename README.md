@@ -22,6 +22,8 @@ You can also click `BranchReview: off` in the status bar to pick the comparison 
 
 That is the whole setup. The status bar switches from `BranchReview: off` to `BranchReview: main`.
 
+![Clicking BranchReview: off in the status bar, picking a base, and the status bar switching to BranchReview: main](docs/images/step2-set-base.webp)
+
 ### 3. Read the code
 
 Open files the way you always do. Changed lines now carry a gutter mark:
@@ -34,15 +36,21 @@ Open files the way you always do. Changed lines now carry a gutter mark:
 
 **Hover any mark** to see that hunk as a diff, including the old code that was replaced or deleted. Nothing is ever injected into your file.
 
+![A gutter mark hovered open, showing the hunk as a diff with the lines it replaced](docs/images/step3-gutter-hover.webp)
+
 ### 4. Walk the changes
 
 `Alt+]` goes to the next change, `Alt+[` to the previous one — **across files**, wrapping from the last change back to the first. Jumping into a file you have not opened yet just opens it normally.
+
+![Moving from one change to the next, then on into another file](docs/images/step4-navigate.webp)
 
 The activity bar **BranchReview → Changes** lists every changed file with its `+n -n`. Click a file to open it at its changes.
 
 ### 5. Keep track of what you have read
 
-Right-click a file in the Changes view and choose **Mark as Reviewed**. It gets a ✓, and the progress row counts up (`3 / 12 files reviewed`).
+Right-click a file in the Changes view and choose **Mark as Reviewed**. It gets a ✓, and the progress row counts up (`1 / 14 files reviewed`).
+
+![Marking files as reviewed in the Changes view, with the progress row counting up](docs/images/step5-reviewed.webp)
 
 Progress is remembered per repository, base, and branch — so when new commits land on the same branch, what you already reviewed stays reviewed.
 
