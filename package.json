@@ -1,7 +1,7 @@
 {
   "name": "branchreview",
   "displayName": "BranchReview",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "private": true,
   "description": "Codebase-aware PR review: PR branch code in the normal editor, diff as gutter metadata.",
   "categories": [
